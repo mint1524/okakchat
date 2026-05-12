@@ -22,7 +22,8 @@ class AppShell extends ConsumerWidget {
         body: Row(
           children: [
             AppSidebar(currentLocation: location, isAdmin: isAdmin),
-            const VerticalDivider(width: 1, thickness: 1),
+            VerticalDivider(width: 1, thickness: 1,
+                color: Theme.of(context).colorScheme.outlineVariant),
             Expanded(child: child),
           ],
         ),

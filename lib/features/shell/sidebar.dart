@@ -1,71 +1,152 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:okakchat/core/auth/auth_provider.dart';
 
-class AppSidebar extends StatelessWidget {
+class AppSidebar extends ConsumerWidget {
   const AppSidebar(
       {super.key, required this.currentLocation, required this.isAdmin});
   final String currentLocation;
   final bool isAdmin;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs   = Theme.of(context).colorScheme;
+    final user = ref.watch(authProvider).valueOrNull;
+
     return SizedBox(
       width: 240,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'OKAK Chat',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
+      child: Material(
+        color: cs.surfaceContainerLow,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Logo ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Row(children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.auto_awesome_rounded,
+                      color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'OKAK Chat',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: cs.onSurface,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ]),
             ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.tonalIcon(
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('New Chat'),
-            onPressed: () => context.go('/chat'),
-          ).withPadding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
-          const Divider(),
-          _NavItem(
-              icon: Icons.chat_outlined,
-              selectedIcon: Icons.chat,
-              label: 'Chat',
-              route: '/chat',
-              current: currentLocation),
-          _NavItem(
-              icon: Icons.history,
-              label: 'History',
-              route: '/history',
-              current: currentLocation),
-          _NavItem(
-              icon: Icons.settings_outlined,
-              selectedIcon: Icons.settings,
-              label: 'Settings',
-              route: '/settings',
-              current: currentLocation),
-          if (isAdmin)
+
+            // ── New chat ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('New Chat'),
+                onPressed: () => context.go('/chat'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 40),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                  textStyle: GoogleFonts.dmSans(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.5)),
+            ),
+
+            // ── Nav ───────────────────────────────────────────────────
             _NavItem(
-                icon: Icons.admin_panel_settings_outlined,
-                selectedIcon: Icons.admin_panel_settings,
-                label: 'Admin',
-                route: '/admin',
+                icon: Icons.chat_bubble_outline_rounded,
+                selectedIcon: Icons.chat_bubble_rounded,
+                label: 'Chat',
+                route: '/chat',
                 current: currentLocation),
-          const Spacer(),
-        ],
+            _NavItem(
+                icon: Icons.history_rounded,
+                label: 'History',
+                route: '/history',
+                current: currentLocation),
+            _NavItem(
+                icon: Icons.settings_outlined,
+                selectedIcon: Icons.settings_rounded,
+                label: 'Settings',
+                route: '/settings',
+                current: currentLocation),
+            if (isAdmin)
+              _NavItem(
+                  icon: Icons.admin_panel_settings_outlined,
+                  selectedIcon: Icons.admin_panel_settings_rounded,
+                  label: 'Admin',
+                  route: '/admin',
+                  current: currentLocation),
+
+            const Spacer(),
+
+            // ── User footer ───────────────────────────────────────────
+            if (user != null) ...[
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Divider(
+                    height: 1,
+                    color: cs.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: cs.primaryContainer,
+                    child: Text(
+                      user.email.isNotEmpty
+                          ? user.email[0].toUpperCase()
+                          : '?',
+                      style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onPrimaryContainer),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.7)),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }
-}
-
-extension on Widget {
-  Widget withPadding(EdgeInsets padding) =>
-      Padding(padding: padding, child: this);
 }
 
 class _NavItem extends StatelessWidget {
@@ -82,26 +163,48 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = current.startsWith(route) && route != '/chat'
-        ? true
-        : current == route || (route == '/chat' && current.startsWith('/chat'));
-    return ListTile(
-      leading: Icon(
-        selected ? (selectedIcon ?? icon) : icon,
-        color: selected ? Theme.of(context).colorScheme.primary : null,
-      ),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: selected ? Theme.of(context).colorScheme.primary : null,
-          fontWeight: selected ? FontWeight.w600 : null,
+    final cs = Theme.of(context).colorScheme;
+    final selected = route == '/chat'
+        ? current == route || current.startsWith('/chat')
+        : current.startsWith(route);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: selected
+            ? cs.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => context.go(route),
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(children: [
+              Icon(
+                selected ? (selectedIcon ?? icon) : icon,
+                size: 18,
+                color: selected
+                    ? cs.primary
+                    : cs.onSurface.withValues(alpha: 0.65),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
+                  fontWeight:
+                      selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.75),
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
-      selected: selected,
-      selectedTileColor:
-          Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      onTap: () => context.go(route),
     );
   }
 }

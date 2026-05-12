@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Production (api.okak.club)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=API_BASE_URL=https://api.okak.club",
+        "--dart-define=WS_BASE_URL=wss://api.okak.club"
+      ]
+    },
+    {
+      "name": "Local (localhost:80)",
+      "request": "launch",
+      "type": "dart",
+      "args": [
+        "--dart-define=API_BASE_URL=http://localhost:80",
+        "--dart-define=WS_BASE_URL=ws://localhost:80"
+      ]
+    }
+  ]
+}
