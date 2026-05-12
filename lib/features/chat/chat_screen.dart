@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:okakchat/core/theme/app_theme.dart';
 import 'chat_provider.dart';
 import 'message_bubble.dart';
 import 'chat_input.dart';
@@ -121,42 +122,77 @@ class _TopBar extends ConsumerWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends StatefulWidget {
   const _EmptyState();
   @override
+  State<_EmptyState> createState() => _EmptyStateState();
+}
+
+class _EmptyStateState extends State<_EmptyState>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(seconds: 3))
+      ..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(20),
+          AnimatedBuilder(
+            animation: _pulse,
+            builder: (_, child) => Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.blue500
+                        .withValues(alpha: 0.12 + 0.12 * _pulse.value),
+                    blurRadius: 30 + 20 * _pulse.value,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: child,
             ),
-            child: Icon(Icons.auto_awesome_rounded,
-                size: 36, color: cs.primary),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'What can I help with?',
-            style: GoogleFonts.dmSans(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
+            child: Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: AppTheme.blue900,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: AppTheme.blue500.withValues(alpha: 0.3)),
+              ),
+              child: Icon(Icons.auto_awesome_rounded,
+                  size: 36, color: AppTheme.blue400),
             ),
           ),
+          const SizedBox(height: 24),
+          Text('What can I help with?',
+              style: GoogleFonts.dmSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textHigh,
+                  letterSpacing: -0.3)),
           const SizedBox(height: 8),
-          Text(
-            'Choose a model above and start typing.',
-            style: GoogleFonts.dmSans(
-              fontSize: 14,
-              color: cs.onSurface.withValues(alpha: 0.5),
-            ),
-          ),
+          Text('Choose a model above and start typing.',
+              style: GoogleFonts.dmSans(
+                  fontSize: 14, color: AppTheme.textMid)),
         ],
       ),
     );
