@@ -6,7 +6,7 @@ class TokenStorage {
   /// Developer signing required.  Data still encrypted via macOS Keychain.
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    mOptions: MacOsOptions(useDataProtectionKeychain: false),
+    mOptions: MacOsOptions(useDataProtectionKeyChain: false),
   );
 
   static const _accessKey  = 'access_token';
