@@ -23,11 +23,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await ref.read(chatProvider.notifier).loadModels();
-      if (widget.conversationId != null) {
-        await ref
-            .read(chatProvider.notifier)
-            .loadConversation(widget.conversationId!);
+      try {
+        await ref.read(chatProvider.notifier).loadModels();
+        if (widget.conversationId != null) {
+          await ref
+              .read(chatProvider.notifier)
+              .loadConversation(widget.conversationId!);
+        }
+      } catch (_) {
+        // Auth not ready yet — router will redirect to login
       }
     });
   }
