@@ -25,6 +25,9 @@ class ChatState {
     this.selectedModel = 'gpt-4o',
     this.models = const [],
     this.mode = 'chat',
+    this.temperature = 0.7,
+    this.systemPrompt,
+    this.maxTokens = 4096,
   });
   final String? conversationId;
   final List<ChatMessage> messages;
@@ -32,6 +35,9 @@ class ChatState {
   final String selectedModel;
   final List<Map<String, dynamic>> models;
   final String mode;
+  final double temperature;
+  final String? systemPrompt;
+  final int maxTokens;
 
   ChatState copyWith({
     String? conversationId,
@@ -40,6 +46,9 @@ class ChatState {
     String? selectedModel,
     List<Map<String, dynamic>>? models,
     String? mode,
+    double? temperature,
+    Object? systemPrompt = _sentinel,
+    int? maxTokens,
   }) =>
       ChatState(
         conversationId: conversationId ?? this.conversationId,
@@ -48,8 +57,15 @@ class ChatState {
         selectedModel: selectedModel ?? this.selectedModel,
         models: models ?? this.models,
         mode: mode ?? this.mode,
+        temperature: temperature ?? this.temperature,
+        systemPrompt: systemPrompt == _sentinel
+            ? this.systemPrompt
+            : systemPrompt as String?,
+        maxTokens: maxTokens ?? this.maxTokens,
       );
 }
+
+const _sentinel = Object();
 
 class ChatNotifier extends StateNotifier<ChatState> {
   ChatNotifier(this._ref) : super(const ChatState());
@@ -83,12 +99,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   void selectModel(String modelId) =>
       state = state.copyWith(selectedModel: modelId);
-
   void setMode(String mode) => state = state.copyWith(mode: mode);
+  void setTemperature(double v) => state = state.copyWith(temperature: v);
+  void setSystemPrompt(String? v) =>
+      state = state.copyWith(systemPrompt: v);
+  void setMaxTokens(int v) => state = state.copyWith(maxTokens: v);
 
   void newChat() => state = ChatState(
         models: state.models,
         selectedModel: state.selectedModel,
+        temperature: state.temperature,
+        systemPrompt: state.systemPrompt,
+        maxTokens: state.maxTokens,
       );
 
   Future<void> sendMessage(String content,
@@ -124,6 +146,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
           wsMessages,
           conversationId: convId,
           tools: tools,
+          temperature: state.temperature,
+          systemPrompt: state.systemPrompt,
+          maxTokens: state.maxTokens,
         );
 
     final buffer = StringBuffer();

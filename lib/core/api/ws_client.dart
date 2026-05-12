@@ -32,6 +32,9 @@ class WsClient {
     List<Map<String, dynamic>> messages, {
     String? conversationId,
     List<Map<String, dynamic>>? tools,
+    double? temperature,
+    String? systemPrompt,
+    int? maxTokens,
   }) async* {
     final token = await TokenStorage.getAccessToken();
 
@@ -54,7 +57,10 @@ class WsClient {
       'messages': messages,
       if (conversationId != null) 'conversationId': conversationId,
       if (tools != null) 'tools': tools,
-      // fallback auth for web (server reads this if no header)
+      if (temperature != null) 'temperature': temperature,
+      if (systemPrompt != null && systemPrompt.isNotEmpty)
+        'systemPrompt': systemPrompt,
+      if (maxTokens != null) 'maxTokens': maxTokens,
       if (kIsWeb && token != null) '_token': token,
     });
     _channel!.sink.add(payload);

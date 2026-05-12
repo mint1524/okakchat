@@ -6,6 +6,7 @@ import 'chat_provider.dart';
 import 'message_bubble.dart';
 import 'chat_input.dart';
 import 'model_selector.dart';
+import 'model_settings_sheet.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key, this.conversationId, this.agentMode = false, this.workspacePath});
@@ -88,9 +89,11 @@ class _TopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(children: [
+        // Model dropdown — takes remaining space
         Expanded(
           child: ModelSelector(
             selectedModel: state.selectedModel,
@@ -98,28 +101,107 @@ class _TopBar extends ConsumerWidget {
             onSelected: (m) => ref.read(chatProvider.notifier).selectModel(m),
           ),
         ),
-        // Mode selector
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'chat', icon: Icon(Icons.chat_outlined, size: 16), label: Text('Chat')),
-            ButtonSegment(value: 'coding', icon: Icon(Icons.code, size: 16), label: Text('Code')),
-          ],
-          selected: {state.mode == 'agent' ? 'chat' : state.mode},
-          onSelectionChanged: (s) =>
-              ref.read(chatProvider.notifier).setMode(s.first),
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+        const SizedBox(width: 8),
+        // Chat / Code mode
+        _ModeButton(
+          label: 'Chat',
+          icon: Icons.chat_bubble_outline_rounded,
+          selected: state.mode == 'chat',
+          onTap: () => ref.read(chatProvider.notifier).setMode('chat'),
         ),
-        IconButton(
-          icon: const Icon(Icons.add_comment_outlined),
-          onPressed: () => ref.read(chatProvider.notifier).newChat(),
-          tooltip: 'New chat',
+        const SizedBox(width: 4),
+        _ModeButton(
+          label: 'Code',
+          icon: Icons.code_rounded,
+          selected: state.mode == 'coding',
+          onTap: () => ref.read(chatProvider.notifier).setMode('coding'),
+        ),
+        const SizedBox(width: 4),
+        // Settings
+        _TopBarIconBtn(
+          icon: Icons.tune_rounded,
+          tooltip: 'Model settings',
+          onTap: () => ModelSettingsSheet.show(context),
         ),
       ]),
     );
   }
+}
+
+class _ModeButton extends StatelessWidget {
+  const _ModeButton({
+    required this.label, required this.icon,
+    required this.selected, required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.blue500.withValues(alpha: 0.18)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.blue500.withValues(alpha: 0.4)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14,
+                color: selected ? AppTheme.blue400 : AppTheme.textMid),
+            const SizedBox(width: 5),
+            Text(label,
+                style: GoogleFonts.sora(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? AppTheme.blue300 : AppTheme.textMid)),
+          ]),
+        ),
+      );
+}
+
+class _TopBarIconBtn extends StatefulWidget {
+  const _TopBarIconBtn(
+      {required this.icon, required this.tooltip, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  @override
+  State<_TopBarIconBtn> createState() => _TopBarIconBtnState();
+}
+class _TopBarIconBtnState extends State<_TopBarIconBtn> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: widget.tooltip,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit:  (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                color: _hovered
+                    ? AppTheme.blue500.withValues(alpha: 0.12)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(widget.icon, size: 18, color: AppTheme.textMid),
+            ),
+          ),
+        ),
+      );
 }
 
 class _EmptyState extends StatefulWidget {
