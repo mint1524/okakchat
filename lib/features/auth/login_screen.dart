@@ -44,51 +44,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildMaterial(bool isLoading) => Scaffold(
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('OKAK Chat',
-                      style: TextStyle(
-                          fontSize: 32, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 32),
-                  TextField(
-                    controller: _emailCtrl,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text('OKAK Chat',
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 32),
+                      TextField(
+                        controller: _emailCtrl,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _passCtrl,
+                        decoration: const InputDecoration(labelText: 'Password'),
+                        obscureText: true,
+                        onSubmitted: (_) => _submit(),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(_error!, style: const TextStyle(color: Colors.red)),
+                      ],
+                      const SizedBox(height: 24),
+                      FilledButton(
+                        onPressed: isLoading ? null : _submit,
+                        child: isLoading
+                            ? const SizedBox(
+                                height: 20, width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Text('Sign in'),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/auth/register'),
+                        child: const Text("Don't have an account? Register"),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passCtrl,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_error!,
-                        style: const TextStyle(color: Colors.red))
-                  ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: isLoading ? null : _submit,
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Sign in'),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/auth/register'),
-                    child: const Text("Don't have an account? Register"),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

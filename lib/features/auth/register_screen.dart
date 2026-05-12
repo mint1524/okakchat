@@ -49,15 +49,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                   const Text('Create account',
                       style: TextStyle(
                           fontSize: 28, fontWeight: FontWeight.bold)),
@@ -99,7 +101,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     onPressed: () => context.go('/auth/login'),
                     child: const Text('Already have an account? Sign in'),
                   ),
-                ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
