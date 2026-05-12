@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:okakchat/core/api/api_errors.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -41,7 +42,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             '/auth/verify?userId=${result.userId}&email=${Uri.encodeComponent(result.email)}');
       }
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
