@@ -9,6 +9,7 @@ import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
 import 'package:okakchat/core/widgets/glass_card.dart';
+import 'auth_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -81,62 +82,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Brand
-                          Center(
-                            child: Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: AppTheme.blue700,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                    color: AppTheme.blue500
-                                        .withValues(alpha: 0.4)),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.blue500
-                                        .withValues(alpha: 0.3),
-                                    blurRadius: 20,
-                                    spreadRadius: -2,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: Colors.white, size: 28),
-                            ),
-                          ),
+                          const Center(child: AuthBrandIcon()),
                           const SizedBox(height: 18),
                           Center(
-                            child: Text(
-                              'OKAK Chat',
-                              style: GoogleFonts.dmSans(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textHigh,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
+                            child: Text('OKAK Chat',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textHigh,
+                                    letterSpacing: -0.5)),
                           ),
                           const SizedBox(height: 4),
                           Center(
-                            child: Text(
-                              'Sign in to continue',
-                              style: GoogleFonts.dmSans(
-                                  fontSize: 13, color: AppTheme.textMid),
-                            ),
+                            child: Text('Sign in to continue',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 13, color: AppTheme.textMid)),
                           ),
                           const SizedBox(height: 28),
-                          // Fields
-                          _DarkField(
-                            controller: _emailCtrl,
-                            label: 'Email',
-                            icon: Icons.mail_outline_rounded,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                          ),
+                          AuthDarkField(
+                              controller: _emailCtrl,
+                              label: 'Email',
+                              icon: Icons.mail_outline_rounded,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next),
                           const SizedBox(height: 12),
-                          _DarkField(
+                          AuthDarkField(
                             controller: _passCtrl,
                             label: 'Password',
                             icon: Icons.lock_outline_rounded,
@@ -155,10 +125,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           ),
                           if (_error != null) ...[
                             const SizedBox(height: 12),
-                            _ErrorBanner(message: _error!),
+                            AuthErrorBanner(message: _error!),
                           ],
                           const SizedBox(height: 20),
-                          _GlowButton(
+                          AuthGlowButton(
                               label: 'Sign in',
                               onPressed: isLoading ? null : _submit,
                               isLoading: isLoading),
@@ -203,50 +173,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Center(
-                        child: Container(
-                          width: 56, height: 56,
-                          decoration: BoxDecoration(
-                            color: AppTheme.blue700,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [BoxShadow(
-                              color: AppTheme.blue500.withValues(alpha: 0.3),
-                              blurRadius: 20)],
-                          ),
-                          child: const Icon(CupertinoIcons.sparkles,
-                              color: Colors.white, size: 28),
-                        ),
-                      ),
+                      const Center(child: AuthBrandIcon(icon: CupertinoIcons.sparkles)),
                       const SizedBox(height: 16),
-                      Center(child: Text('OKAK Chat', style: GoogleFonts.dmSans(
-                          fontSize: 22, fontWeight: FontWeight.w700,
-                          color: AppTheme.textHigh))),
+                      Center(
+                        child: Text('OKAK Chat',
+                            style: GoogleFonts.dmSans(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textHigh)),
+                      ),
                       const SizedBox(height: 22),
-                      _IosDarkField(controller: _emailCtrl, placeholder: 'Email',
+                      _IosDarkField(
+                          controller: _emailCtrl,
+                          placeholder: 'Email',
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next),
                       const SizedBox(height: 10),
-                      _IosDarkField(controller: _passCtrl, placeholder: 'Password',
-                          obscureText: true, onSubmitted: (_) => _submit()),
+                      _IosDarkField(
+                          controller: _passCtrl,
+                          placeholder: 'Password',
+                          obscureText: true,
+                          onSubmitted: (_) => _submit()),
                       if (_error != null) ...[
                         const SizedBox(height: 10),
-                        _ErrorBanner(message: _error!),
+                        AuthErrorBanner(message: _error!),
                       ],
                       const SizedBox(height: 20),
-                      _GlowButton(label: 'Sign in',
+                      AuthGlowButton(
+                          label: 'Sign in',
                           onPressed: isLoading ? null : _submit,
                           isLoading: isLoading),
                       const SizedBox(height: 12),
-                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text("No account? ", style: GoogleFonts.dmSans(
-                            fontSize: 12, color: AppTheme.textMid)),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero, minSize: 0,
-                          onPressed: () => context.go('/auth/register'),
-                          child: Text('Register', style: GoogleFonts.dmSans(
-                              fontSize: 12, color: AppTheme.blue400)),
-                        ),
-                      ]),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('No account? ',
+                              style: GoogleFonts.dmSans(
+                                  fontSize: 12, color: AppTheme.textMid)),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minSize: 0,
+                            onPressed: () => context.go('/auth/register'),
+                            child: Text('Register',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 12, color: AppTheme.blue400)),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -257,55 +230,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       );
 }
 
-// ── Shared sub-widgets ────────────────────────────────────────────────────
-
-class _DarkField extends StatelessWidget {
-  const _DarkField({
-    required this.controller, required this.label, required this.icon,
-    this.obscureText = false, this.keyboardType, this.textInputAction,
-    this.onSubmitted, this.suffix,
-  });
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final TextInputAction? textInputAction;
-  final ValueChanged<String>? onSubmitted;
-  final Widget? suffix;
-
-  @override
-  Widget build(BuildContext context) => TextField(
-        controller: controller, obscureText: obscureText,
-        keyboardType: keyboardType, textInputAction: textInputAction,
-        onSubmitted: onSubmitted,
-        style: GoogleFonts.dmSans(fontSize: 14, color: AppTheme.textHigh),
-        cursorColor: AppTheme.blue400,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.dmSans(fontSize: 13, color: AppTheme.textMid),
-          prefixIcon: Icon(icon, size: 18, color: AppTheme.textMid),
-          suffixIcon: suffix,
-          filled: true,
-          fillColor: AppTheme.surface1,
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: AppTheme.blue500.withValues(alpha: 0.18)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(
-                color: AppTheme.blue500.withValues(alpha: 0.6), width: 1.5),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
-      );
-}
-
 class _IosDarkField extends StatelessWidget {
   const _IosDarkField({
-    required this.controller, required this.placeholder,
-    this.obscureText = false, this.keyboardType, this.textInputAction,
+    required this.controller,
+    required this.placeholder,
+    this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
     this.onSubmitted,
   });
   final TextEditingController controller;
@@ -319,81 +250,21 @@ class _IosDarkField extends StatelessWidget {
   Widget build(BuildContext context) => CupertinoTextField(
         controller: controller,
         placeholder: placeholder,
-        placeholderStyle: TextStyle(color: AppTheme.textMid, fontSize: 14),
+        placeholderStyle:
+            TextStyle(color: AppTheme.textMid, fontSize: 14),
         style: TextStyle(color: AppTheme.textHigh, fontSize: 14),
         obscureText: obscureText,
         keyboardType: keyboardType,
         textInputAction: textInputAction,
         onSubmitted: onSubmitted,
         cursorColor: AppTheme.blue400,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: AppTheme.surface1,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.blue500.withValues(alpha: 0.2)),
-        ),
-      );
-}
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-  final String message;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF5C1A1A),
-          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-              color: const Color(0xFFF87171).withValues(alpha: 0.3)),
-        ),
-        child: Row(children: [
-          const Icon(Icons.error_outline_rounded, size: 15,
-              color: Color(0xFFF87171)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(message,
-              style: GoogleFonts.dmSans(fontSize: 12,
-                  color: const Color(0xFFFCA5A5)))),
-        ]),
-      );
-}
-
-class _GlowButton extends StatelessWidget {
-  const _GlowButton({required this.label, required this.onPressed,
-      this.isLoading = false});
-  final String label;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 48,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: onPressed != null
-              ? [BoxShadow(
-                  color: AppTheme.blue500.withValues(alpha: 0.35),
-                  blurRadius: 20, spreadRadius: -2,
-                  offset: const Offset(0, 4))]
-              : null,
-        ),
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.blue500,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppTheme.blue700.withValues(alpha: 0.5),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
-            textStyle: GoogleFonts.dmSans(
-                fontSize: 15, fontWeight: FontWeight.w600),
-          ),
-          child: isLoading
-              ? const SizedBox(height: 20, width: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : Text(label),
+              color: AppTheme.blue500.withValues(alpha: 0.2)),
         ),
       );
 }

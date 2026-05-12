@@ -7,7 +7,7 @@ import 'package:okakchat/core/auth/auth_provider.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
 import 'package:okakchat/core/widgets/glass_card.dart';
-import 'login_screen.dart'; // re-uses _DarkField, _GlowButton, _ErrorBanner
+import 'auth_widgets.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -68,7 +68,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             child: SafeArea(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 40),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 380),
                     child: GlassCard(
@@ -78,42 +79,37 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Center(
-                            child: Container(
-                              width: 56, height: 56,
-                              decoration: BoxDecoration(
-                                color: AppTheme.blue700,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                    color: AppTheme.blue500.withValues(alpha: 0.4)),
-                                boxShadow: [BoxShadow(
-                                    color: AppTheme.blue500.withValues(alpha: 0.3),
-                                    blurRadius: 20, spreadRadius: -2)],
-                              ),
-                              child: const Icon(Icons.auto_awesome_rounded,
-                                  color: Colors.white, size: 28),
-                            ),
-                          ),
+                          const Center(child: AuthBrandIcon()),
                           const SizedBox(height: 18),
-                          Center(child: Text('Create account',
-                              style: GoogleFonts.dmSans(fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textHigh, letterSpacing: -0.5))),
+                          Center(
+                            child: Text('Create account',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.textHigh,
+                                    letterSpacing: -0.5)),
+                          ),
                           const SizedBox(height: 4),
-                          Center(child: Text('Join OKAK Chat',
-                              style: GoogleFonts.dmSans(fontSize: 13,
-                                  color: AppTheme.textMid))),
+                          Center(
+                            child: Text('Join OKAK Chat',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 13, color: AppTheme.textMid)),
+                          ),
                           const SizedBox(height: 28),
-                          _DarkField(controller: _nameCtrl, label: 'Display name',
+                          AuthDarkField(
+                              controller: _nameCtrl,
+                              label: 'Display name',
                               icon: Icons.person_outline_rounded,
                               textInputAction: TextInputAction.next),
                           const SizedBox(height: 12),
-                          _DarkField(controller: _emailCtrl, label: 'Email',
+                          AuthDarkField(
+                              controller: _emailCtrl,
+                              label: 'Email',
                               icon: Icons.mail_outline_rounded,
                               keyboardType: TextInputType.emailAddress,
                               textInputAction: TextInputAction.next),
                           const SizedBox(height: 12),
-                          _DarkField(
+                          AuthDarkField(
                             controller: _passCtrl,
                             label: 'Password (8+ chars)',
                             icon: Icons.lock_outline_rounded,
@@ -121,32 +117,40 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                             onSubmitted: (_) => _submit(),
                             suffix: IconButton(
                               icon: Icon(
-                                _obscure ? Icons.visibility_off_outlined
-                                         : Icons.visibility_outlined,
+                                _obscure
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
                                 size: 18, color: AppTheme.textMid),
-                              onPressed: () => setState(() => _obscure = !_obscure),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
                             ),
                           ),
                           if (_error != null) ...[
                             const SizedBox(height: 12),
-                            _ErrorBanner(message: _error!),
+                            AuthErrorBanner(message: _error!),
                           ],
                           const SizedBox(height: 20),
-                          _GlowButton(label: 'Create account',
+                          AuthGlowButton(
+                              label: 'Create account',
                               onPressed: _loading ? null : _submit,
                               isLoading: _loading),
                           const SizedBox(height: 16),
-                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Text('Already have an account? ',
-                                style: GoogleFonts.dmSans(
-                                    fontSize: 12, color: AppTheme.textMid)),
-                            GestureDetector(
-                              onTap: () => context.go('/auth/login'),
-                              child: Text('Sign in', style: GoogleFonts.dmSans(
-                                  fontSize: 12, color: AppTheme.blue400,
-                                  fontWeight: FontWeight.w600)),
-                            ),
-                          ]),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Already have an account? ',
+                                  style: GoogleFonts.dmSans(
+                                      fontSize: 12, color: AppTheme.textMid)),
+                              GestureDetector(
+                                onTap: () => context.go('/auth/login'),
+                                child: Text('Sign in',
+                                    style: GoogleFonts.dmSans(
+                                        fontSize: 12,
+                                        color: AppTheme.blue400,
+                                        fontWeight: FontWeight.w600)),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),

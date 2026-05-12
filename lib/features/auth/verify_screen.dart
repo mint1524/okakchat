@@ -6,7 +6,7 @@ import 'package:okakchat/core/auth/auth_provider.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
 import 'package:okakchat/core/widgets/glass_card.dart';
-import 'login_screen.dart'; // _GlowButton, _ErrorBanner
+import 'auth_widgets.dart';
 
 class VerifyScreen extends ConsumerStatefulWidget {
   const VerifyScreen({super.key, required this.userId, required this.email});
@@ -42,7 +42,8 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
   Future<void> _submit() async {
     setState(() => _error = null);
     try {
-      await ref.read(authProvider.notifier)
+      await ref
+          .read(authProvider.notifier)
           .verify(widget.userId, _codeCtrl.text.trim());
     } catch (e) {
       setState(() => _error = friendlyError(e));
@@ -65,44 +66,41 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 380),
                   child: GlassCard(
-                    glowOpacity: 0.12, backgroundOpacity: 0.1,
+                    glowOpacity: 0.12,
+                    backgroundOpacity: 0.1,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Center(
-                          child: Container(
-                            width: 56, height: 56,
-                            decoration: BoxDecoration(
-                              color: AppTheme.blue700,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                  color: AppTheme.blue500.withValues(alpha: 0.4)),
-                              boxShadow: [BoxShadow(
-                                  color: AppTheme.blue500.withValues(alpha: 0.3),
-                                  blurRadius: 20, spreadRadius: -2)],
-                            ),
-                            child: Icon(Icons.mark_email_unread_outlined,
-                                color: AppTheme.blue300, size: 26),
-                          ),
+                          child: AuthBrandIcon(
+                              icon: Icons.mark_email_unread_outlined),
                         ),
                         const SizedBox(height: 18),
-                        Center(child: Text('Verify email',
-                            style: GoogleFonts.dmSans(fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textHigh, letterSpacing: -0.5))),
+                        Center(
+                          child: Text('Verify email',
+                              style: GoogleFonts.dmSans(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textHigh,
+                                  letterSpacing: -0.5)),
+                        ),
                         const SizedBox(height: 8),
-                        Center(child: Text('Code sent to\n${widget.email}',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.dmSans(
-                                fontSize: 13, color: AppTheme.textMid))),
+                        Center(
+                          child: Text(
+                              'Code sent to\n${widget.email}',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.dmSans(
+                                  fontSize: 13, color: AppTheme.textMid)),
+                        ),
                         const SizedBox(height: 28),
                         TextField(
                           controller: _codeCtrl,
                           keyboardType: TextInputType.number,
                           maxLength: 6,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.dmSans(fontSize: 34,
+                          style: GoogleFonts.dmSans(
+                              fontSize: 34,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 14,
                               color: AppTheme.textHigh),
@@ -111,18 +109,23 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                           decoration: InputDecoration(
                             counterText: '',
                             hintText: '------',
-                            hintStyle: GoogleFonts.dmSans(fontSize: 34,
-                                letterSpacing: 14, color: AppTheme.textLow),
-                            filled: true, fillColor: AppTheme.surface1,
+                            hintStyle: GoogleFonts.dmSans(
+                                fontSize: 34,
+                                letterSpacing: 14,
+                                color: AppTheme.textLow),
+                            filled: true,
+                            fillColor: AppTheme.surface1,
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide(
-                                  color: AppTheme.blue500.withValues(alpha: 0.18)),
+                                  color: AppTheme.blue500
+                                      .withValues(alpha: 0.18)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide(
-                                  color: AppTheme.blue500.withValues(alpha: 0.6),
+                                  color: AppTheme.blue500
+                                      .withValues(alpha: 0.6),
                                   width: 1.5),
                             ),
                             contentPadding:
@@ -131,10 +134,11 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),
-                          _ErrorBanner(message: _error!),
+                          AuthErrorBanner(message: _error!),
                         ],
                         const SizedBox(height: 20),
-                        _GlowButton(label: 'Verify',
+                        AuthGlowButton(
+                            label: 'Verify',
                             onPressed: isLoading ? null : _submit,
                             isLoading: isLoading),
                       ],
