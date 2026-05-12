@@ -155,7 +155,7 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       );
 
-  static CardTheme _cardTheme(ColorScheme cs) => CardTheme(
+  static CardThemeData _cardTheme(ColorScheme cs) => CardThemeData(
         elevation: 0,
         color: cs.surfaceContainerLow,
         shape: RoundedRectangleBorder(
