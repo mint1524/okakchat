@@ -6,14 +6,9 @@ import 'package:okakchat/features/auth/login_screen.dart';
 import 'package:okakchat/features/auth/register_screen.dart';
 import 'package:okakchat/features/auth/verify_screen.dart';
 import 'package:okakchat/features/shell/app_shell.dart';
+import 'package:okakchat/features/chat/chat_screen.dart';
 
 // Stub screens — will be replaced in later tasks
-class _ChatStub extends StatelessWidget {
-  const _ChatStub({this.conversationId});
-  final String? conversationId;
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Chat')));
-}
 class _HistoryStub extends StatelessWidget {
   const _HistoryStub();
   @override
@@ -61,11 +56,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
               path: '/chat',
-              builder: (_, __) => const _ChatStub()),
+              builder: (_, __) => const ChatScreen()),
           GoRoute(
               path: '/chat/:id',
               builder: (_, state) =>
-                  _ChatStub(conversationId: state.pathParameters['id'])),
+                  ChatScreen(conversationId: state.pathParameters['id'])),
           GoRoute(
               path: '/history',
               builder: (_, __) => const _HistoryStub()),
