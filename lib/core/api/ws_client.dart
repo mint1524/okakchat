@@ -31,7 +31,8 @@ class WsClient {
     String? conversationId,
     List<Map<String, dynamic>>? tools,
   }) async* {
-    final token = await TokenStorage.getAccessToken();
+    // token retrieved for future auth header usage
+    await TokenStorage.getAccessToken();
     _channel = WebSocketChannel.connect(
       Uri.parse('$_wsBaseUrl/api/ai/stream'),
     );

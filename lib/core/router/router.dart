@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
@@ -8,18 +7,8 @@ import 'package:okakchat/features/auth/verify_screen.dart';
 import 'package:okakchat/features/shell/app_shell.dart';
 import 'package:okakchat/features/chat/chat_screen.dart';
 import 'package:okakchat/features/history/history_screen.dart';
-
-// Stub screens — will be replaced in later tasks
-class _SettingsStub extends StatelessWidget {
-  const _SettingsStub();
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Settings')));
-}
-class _AdminStub extends StatelessWidget {
-  const _AdminStub();
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Admin')));
-}
+import 'package:okakchat/features/settings/settings_screen.dart';
+import 'package:okakchat/features/admin/admin_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -62,10 +51,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               builder: (_, __) => const HistoryScreen()),
           GoRoute(
               path: '/settings',
-              builder: (_, __) => const _SettingsStub()),
+              builder: (_, __) => const SettingsScreen()),
           GoRoute(
               path: '/admin',
-              builder: (_, __) => const _AdminStub()),
+              builder: (_, __) => const AdminShell()),
         ],
       ),
     ],

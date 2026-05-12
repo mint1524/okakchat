@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:okakchat/core/api/api_client.dart';
+import 'package:okakchat/core/auth/auth_provider.dart';
 import 'package:okakchat/core/api/chat_api.dart';
 
 final _historyProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {

@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
 import 'package:okakchat/features/chat/chat_screen.dart';
 import 'package:okakchat/features/chat/chat_provider.dart';
-import 'tool_definitions.dart';
 import 'tools/tool_executor.dart';
 
 class AgentScreen extends ConsumerStatefulWidget {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/api/chat_api.dart';
 import 'package:okakchat/core/api/ws_client.dart';
-import 'package:okakchat/core/api/api_client.dart';
+import 'package:okakchat/core/auth/auth_provider.dart';
 
 final chatApiProvider = Provider((ref) => ChatApi(ref.watch(dioProvider)));
 
@@ -104,13 +104,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     // Create conversation if needed
     String? convId = state.conversationId;
-    if (convId == null) {
-      convId = await _ref.read(chatApiProvider).createConversation(
-            content.length > 40 ? '${content.substring(0, 40)}…' : content,
-            state.selectedModel,
-            state.mode,
-          );
-    }
+    convId ??= await _ref.read(chatApiProvider).createConversation(
+          content.length > 40 ? '${content.substring(0, 40)}…' : content,
+          state.selectedModel,
+          state.mode,
+        );
 
     // Persist user message
     await _ref.read(chatApiProvider).addMessage(convId, 'user', content);
@@ -164,7 +162,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     // If there's a pending tool call, emit it so agent can handle it
     if (pendingToolCall != null) {
-      _pendingToolCallController?.add(pendingToolCall!);
+      _pendingToolCallController.add(pendingToolCall);
     }
   }
 

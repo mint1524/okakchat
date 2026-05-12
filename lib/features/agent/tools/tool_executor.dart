@@ -68,7 +68,9 @@ class DesktopToolExecutor implements ToolExecutor {
     await for (final entity in dir.list(recursive: true, followLinks: false)) {
       if (entity is File) {
         if (glob != null &&
-            !_matchGlob(p.relative(entity.path, from: path), glob)) continue;
+            !_matchGlob(p.relative(entity.path, from: path), glob)) {
+          continue;
+        }
         final content =
             await entity.readAsString().catchError((_) => '');
         final lines = content.split('\n');
