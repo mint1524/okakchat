@@ -79,7 +79,7 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                         const SizedBox(height: 18),
                         Center(
                           child: Text('Verify email',
-                              style: GoogleFonts.spaceGrotesk(
+                              style: GoogleFonts.sora(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
                                   color: AppTheme.textHigh,
@@ -90,7 +90,7 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                           child: Text(
                               'Code sent to\n${widget.email}',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.spaceGrotesk(
+                              style: GoogleFonts.sora(
                                   fontSize: 13, color: AppTheme.textMid)),
                         ),
                         const SizedBox(height: 28),
@@ -99,7 +99,7 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                           keyboardType: TextInputType.number,
                           maxLength: 6,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.spaceGrotesk(
+                          style: GoogleFonts.sora(
                               fontSize: 34,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 14,
@@ -109,7 +109,7 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen>
                           decoration: InputDecoration(
                             counterText: '',
                             hintText: '------',
-                            hintStyle: GoogleFonts.spaceGrotesk(
+                            hintStyle: GoogleFonts.sora(
                                 fontSize: 34,
                                 letterSpacing: 14,
                                 color: AppTheme.textLow),

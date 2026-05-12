@@ -9,7 +9,7 @@ TextStyle _font({
   double? letterSpacing,
   double? height,
 }) =>
-    GoogleFonts.spaceGrotesk(
+    GoogleFonts.sora(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
@@ -124,22 +124,22 @@ class AppTheme {
 
   // ── Typography — DM Sans ─────────────────────────────────────────────────
   static TextTheme _buildTextTheme(TextTheme base) =>
-      GoogleFonts.spaceGroteskTextTheme(base).copyWith(
-        displayLarge:  GoogleFonts.spaceGrotesk(fontSize: 57, fontWeight: FontWeight.w300, letterSpacing: -0.5),
-        displayMedium: GoogleFonts.spaceGrotesk(fontSize: 45, fontWeight: FontWeight.w300, letterSpacing: -0.25),
-        displaySmall:  GoogleFonts.spaceGrotesk(fontSize: 36, fontWeight: FontWeight.w300),
-        headlineLarge: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: -0.5),
-        headlineMedium:GoogleFonts.spaceGrotesk(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-        headlineSmall: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.2),
-        titleLarge:    GoogleFonts.spaceGrotesk(fontSize: 22, fontWeight: FontWeight.w600),
-        titleMedium:   GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.1),
-        titleSmall:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w500),
-        bodyLarge:     GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w400),
-        bodyMedium:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w400),
-        bodySmall:     GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w400),
-        labelLarge:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.1),
-        labelMedium:   GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.4),
-        labelSmall:    GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+      GoogleFonts.soraTextTheme(base).copyWith(
+        displayLarge:  GoogleFonts.sora(fontSize: 57, fontWeight: FontWeight.w300, letterSpacing: -0.5),
+        displayMedium: GoogleFonts.sora(fontSize: 45, fontWeight: FontWeight.w300, letterSpacing: -0.25),
+        displaySmall:  GoogleFonts.sora(fontSize: 36, fontWeight: FontWeight.w300),
+        headlineLarge: GoogleFonts.sora(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: -0.5),
+        headlineMedium:GoogleFonts.sora(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+        headlineSmall: GoogleFonts.sora(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+        titleLarge:    GoogleFonts.sora(fontSize: 22, fontWeight: FontWeight.w600),
+        titleMedium:   GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        titleSmall:    GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w500),
+        bodyLarge:     GoogleFonts.sora(fontSize: 16, fontWeight: FontWeight.w400),
+        bodyMedium:    GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w400),
+        bodySmall:     GoogleFonts.sora(fontSize: 12, fontWeight: FontWeight.w400),
+        labelLarge:    GoogleFonts.sora(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        labelMedium:   GoogleFonts.sora(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.4),
+        labelSmall:    GoogleFonts.sora(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
       );
 
   // ── Component overrides ──────────────────────────────────────────────────
@@ -183,7 +183,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.sora(fontSize: 15, fontWeight: FontWeight.w600),
           backgroundColor: cs.primary,
           foregroundColor: Colors.white,
         ),
@@ -194,7 +194,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: cs.onSurface,
-        titleTextStyle: GoogleFonts.spaceGrotesk(
+        titleTextStyle: GoogleFonts.sora(
             fontSize: 18, fontWeight: FontWeight.w600, color: cs.onSurface),
       );
 

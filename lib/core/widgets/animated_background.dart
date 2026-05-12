@@ -72,9 +72,9 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
               if (widget.parallax) {
                 const speed = 0.05;
                 _parallax1 = Offset.lerp(
-                    _parallax1, _mouse * 18, speed)!;
+                    _parallax1, _mouse * 28, speed)!;
                 _parallax2 = Offset.lerp(
-                    _parallax2, _mouse * 36, speed)!;
+                    _parallax2, _mouse * 56, speed)!;
               }
               return CustomPaint(
                 painter: _ParticlePainter(
