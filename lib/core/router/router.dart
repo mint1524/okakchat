@@ -2,24 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/features/auth/login_screen.dart';
+import 'package:okakchat/features/auth/register_screen.dart';
+import 'package:okakchat/features/auth/verify_screen.dart';
+import 'package:okakchat/features/shell/app_shell.dart';
 
 // Stub screens — will be replaced in later tasks
-class _LoginStub extends StatelessWidget {
-  const _LoginStub();
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Login')));
-}
-class _RegisterStub extends StatelessWidget {
-  const _RegisterStub();
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Register')));
-}
-class _VerifyStub extends StatelessWidget {
-  const _VerifyStub({required this.userId, required this.email});
-  final String userId, email;
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Verify: $email')));
-}
 class _ChatStub extends StatelessWidget {
   const _ChatStub({this.conversationId});
   final String? conversationId;
@@ -41,12 +29,6 @@ class _AdminStub extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Admin')));
 }
-class _ShellStub extends StatelessWidget {
-  const _ShellStub({required this.child});
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => child;
-}
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -64,18 +46,18 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
           path: '/auth/login',
-          builder: (_, __) => const _LoginStub()),
+          builder: (_, __) => const LoginScreen()),
       GoRoute(
           path: '/auth/register',
-          builder: (_, __) => const _RegisterStub()),
+          builder: (_, __) => const RegisterScreen()),
       GoRoute(
           path: '/auth/verify',
-          builder: (_, state) => _VerifyStub(
+          builder: (_, state) => VerifyScreen(
                 userId: state.uri.queryParameters['userId'] ?? '',
                 email: state.uri.queryParameters['email'] ?? '',
               )),
       ShellRoute(
-        builder: (context, state, child) => _ShellStub(child: child),
+        builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(
               path: '/chat',
