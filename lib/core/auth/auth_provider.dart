@@ -43,6 +43,7 @@ class AuthNotifier extends AsyncNotifier<AuthUser?> {
       state = AsyncData(_meToUser(me));
     } catch (e, st) {
       state = AsyncError(e, st);
+      rethrow;
     }
   }
 
@@ -65,6 +66,7 @@ class AuthNotifier extends AsyncNotifier<AuthUser?> {
       state = AsyncData(_meToUser(me));
     } catch (e, st) {
       state = AsyncError(e, st);
+      rethrow;
     }
   }
 

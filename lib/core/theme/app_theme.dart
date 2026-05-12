@@ -1,6 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// Font helper — centralised so it's easy to swap
+TextStyle _font({
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+  double? letterSpacing,
+  double? height,
+}) =>
+    GoogleFonts.spaceGrotesk(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+
 /// OKAK Chat — High-tech minimalist design system.
 ///
 /// Dark-first. Electric blue (#3B82F6) on deep navy-black (#060B17).
@@ -17,15 +33,15 @@ class AppTheme {
   static const surface2  = Color(0xFF172035);
   static const surface3  = Color(0xFF1E2A42);
 
-  /// Electric blue
-  static const blue500   = Color(0xFF3B82F6);
-  static const blue400   = Color(0xFF60A5FA);
-  static const blue300   = Color(0xFF93C5FD);
-  static const blue700   = Color(0xFF1D4ED8);
-  static const blue900   = Color(0xFF1E3A5F);
+  /// Cyan accent — matches reference (#06B6D4 = Tailwind cyan-500)
+  static const blue500   = Color(0xFF06B6D4);  // cyan-500
+  static const blue400   = Color(0xFF22D3EE);  // cyan-400
+  static const blue300   = Color(0xFF67E8F9);  // cyan-300
+  static const blue700   = Color(0xFF0E7490);  // cyan-700
+  static const blue900   = Color(0xFF0A3845);  // cyan-950-ish
 
-  /// Sky accent
-  static const sky400    = Color(0xFF38BDF8);
+  /// Deeper accent for particles/glows
+  static const sky400    = Color(0xFF38BDF8);  // sky-400
 
   /// Text
   static const textHigh  = Color(0xFFE2E8F0);  // slate-200
@@ -33,8 +49,8 @@ class AppTheme {
   static const textLow   = Color(0xFF475569);   // slate-600
 
   /// Glass border tint
-  static const glassBorder = Color(0x1A3B82F6); // blue, 10% opacity
-  static const glassOverlay = Color(0x0D3B82F6); // blue, 5% opacity
+  static const glassBorder  = Color(0x1A06B6D4); // cyan, 10% opacity
+  static const glassOverlay = Color(0x0D06B6D4); // cyan, 5% opacity
 
   // ── Color scheme ─────────────────────────────────────────────────────────
   static const _darkScheme = ColorScheme(
@@ -108,22 +124,22 @@ class AppTheme {
 
   // ── Typography — DM Sans ─────────────────────────────────────────────────
   static TextTheme _buildTextTheme(TextTheme base) =>
-      GoogleFonts.dmSansTextTheme(base).copyWith(
-        displayLarge:  GoogleFonts.dmSans(fontSize: 57, fontWeight: FontWeight.w300, letterSpacing: -0.5),
-        displayMedium: GoogleFonts.dmSans(fontSize: 45, fontWeight: FontWeight.w300, letterSpacing: -0.25),
-        displaySmall:  GoogleFonts.dmSans(fontSize: 36, fontWeight: FontWeight.w300),
-        headlineLarge: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: -0.5),
-        headlineMedium:GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.3),
-        headlineSmall: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.2),
-        titleLarge:    GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w600),
-        titleMedium:   GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.1),
-        titleSmall:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500),
-        bodyLarge:     GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w400),
-        bodyMedium:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w400),
-        bodySmall:     GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w400),
-        labelLarge:    GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.1),
-        labelMedium:   GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.4),
-        labelSmall:    GoogleFonts.dmSans(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+      GoogleFonts.spaceGroteskTextTheme(base).copyWith(
+        displayLarge:  GoogleFonts.spaceGrotesk(fontSize: 57, fontWeight: FontWeight.w300, letterSpacing: -0.5),
+        displayMedium: GoogleFonts.spaceGrotesk(fontSize: 45, fontWeight: FontWeight.w300, letterSpacing: -0.25),
+        displaySmall:  GoogleFonts.spaceGrotesk(fontSize: 36, fontWeight: FontWeight.w300),
+        headlineLarge: GoogleFonts.spaceGrotesk(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: -0.5),
+        headlineMedium:GoogleFonts.spaceGrotesk(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+        headlineSmall: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: -0.2),
+        titleLarge:    GoogleFonts.spaceGrotesk(fontSize: 22, fontWeight: FontWeight.w600),
+        titleMedium:   GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        titleSmall:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w500),
+        bodyLarge:     GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w400),
+        bodyMedium:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w400),
+        bodySmall:     GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w400),
+        labelLarge:    GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 0.1),
+        labelMedium:   GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w500, letterSpacing: 0.4),
+        labelSmall:    GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
       );
 
   // ── Component overrides ──────────────────────────────────────────────────
@@ -167,7 +183,7 @@ class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: GoogleFonts.dmSans(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.w600),
           backgroundColor: cs.primary,
           foregroundColor: Colors.white,
         ),
@@ -178,7 +194,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: cs.onSurface,
-        titleTextStyle: GoogleFonts.dmSans(
+        titleTextStyle: GoogleFonts.spaceGrotesk(
             fontSize: 18, fontWeight: FontWeight.w600, color: cs.onSurface),
       );
 

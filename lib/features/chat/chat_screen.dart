@@ -184,14 +184,14 @@ class _EmptyStateState extends State<_EmptyState>
           ),
           const SizedBox(height: 24),
           Text('What can I help with?',
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.spaceGrotesk(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textHigh,
                   letterSpacing: -0.3)),
           const SizedBox(height: 8),
           Text('Choose a model above and start typing.',
-              style: GoogleFonts.dmSans(
+              style: GoogleFonts.spaceGrotesk(
                   fontSize: 14, color: AppTheme.textMid)),
         ],
       ),

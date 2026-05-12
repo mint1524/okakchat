@@ -2,12 +2,19 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Animated particle background — 28 slowly drifting blue dots
-/// with connecting lines. Canvas-only, ~0% CPU overhead.
+/// Animated particle background with optional mouse parallax.
+/// 28 drifting dots with connecting lines. Canvas-only.
 class AnimatedBackground extends StatefulWidget {
-  const AnimatedBackground({super.key, this.child, this.particleCount = 28});
+  const AnimatedBackground({
+    super.key,
+    this.child,
+    this.particleCount = 28,
+    this.parallax = false,
+  });
   final Widget? child;
   final int particleCount;
+  /// Enable mouse-tracking parallax (desktop/web only)
+  final bool parallax;
 
   @override
   State<AnimatedBackground> createState() => _AnimatedBackgroundState();
@@ -18,6 +25,11 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
   late final AnimationController _ctrl;
   late final List<_Particle> _particles;
   final _rng = math.Random();
+
+  // Parallax offsets — smoothly lerp toward mouse position
+  Offset _mouse = Offset.zero;
+  Offset _parallax1 = Offset.zero; // slow layer (depth 1)
+  Offset _parallax2 = Offset.zero; // fast layer (depth 2)
 
   @override
   void initState() {
@@ -36,17 +48,41 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
     super.dispose();
   }
 
+  void _onMouseMove(PointerEvent evt, Size size) {
+    _mouse = Offset(
+      (evt.localPosition.dx / size.width  - 0.5) * 2,
+      (evt.localPosition.dy / size.height - 0.5) * 2,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        for (final p in _particles) {
-          p.update();
-        }
-        return CustomPaint(
-          painter: _ParticlePainter(_particles),
-          child: widget.child,
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        return MouseRegion(
+          onHover: widget.parallax
+              ? (e) => _onMouseMove(e, size)
+              : null,
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (_, __) {
+              for (final p in _particles) p.update();
+              // Smoothly lerp parallax offsets
+              if (widget.parallax) {
+                const speed = 0.05;
+                _parallax1 = Offset.lerp(
+                    _parallax1, _mouse * 18, speed)!;
+                _parallax2 = Offset.lerp(
+                    _parallax2, _mouse * 36, speed)!;
+              }
+              return CustomPaint(
+                painter: _ParticlePainter(
+                    _particles, _parallax1, _parallax2),
+                child: widget.child,
+              );
+            },
+          ),
         );
       },
     );
@@ -58,9 +94,9 @@ class _Particle {
   _Particle.random(math.Random rng) {
     x  = rng.nextDouble();
     y  = rng.nextDouble();
-    // Very slow random velocity
-    vx = (rng.nextDouble() - 0.5) * 0.00012;
-    vy = (rng.nextDouble() - 0.5) * 0.00012;
+    // Visible but not distracting — 5-6× faster than before
+    vx = (rng.nextDouble() - 0.5) * 0.00065;
+    vy = (rng.nextDouble() - 0.5) * 0.00065;
     size   = rng.nextDouble() * 1.8 + 0.8;
     opacity = rng.nextDouble() * 0.4 + 0.15;
   }
@@ -80,8 +116,11 @@ class _Particle {
 
 // ── Painter ───────────────────────────────────────────────────────────────
 class _ParticlePainter extends CustomPainter {
-  _ParticlePainter(this.particles);
+  _ParticlePainter(this.particles,
+      [this.parallax1 = Offset.zero, this.parallax2 = Offset.zero]);
   final List<_Particle> particles;
+  final Offset parallax1; // slow layer offset in pixels
+  final Offset parallax2; // fast layer offset in pixels
 
   static const _connectionDistance = 0.22; // fraction of screen width
 
@@ -127,12 +166,15 @@ class _ParticlePainter extends CustomPainter {
       }
     }
 
-    // Dots
+    // Dots — odd-indexed particles shift more (parallax depth 2)
     final dotPaint = Paint()..style = PaintingStyle.fill;
-    for (final p in particles) {
+    for (int i = 0; i < particles.length; i++) {
+      final p = particles[i];
+      final offset = i.isEven ? parallax1 : parallax2;
       dotPaint.color = AppTheme.blue400.withValues(alpha: p.opacity);
       canvas.drawCircle(
-        Offset(p.x * size.width, p.y * size.height),
+        Offset(p.x * size.width + offset.dx,
+               p.y * size.height + offset.dy),
         p.size,
         dotPaint,
       );

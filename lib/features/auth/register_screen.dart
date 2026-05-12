@@ -83,7 +83,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           const SizedBox(height: 18),
                           Center(
                             child: Text('Create account',
-                                style: GoogleFonts.dmSans(
+                                style: GoogleFonts.spaceGrotesk(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w700,
                                     color: AppTheme.textHigh,
@@ -92,7 +92,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           const SizedBox(height: 4),
                           Center(
                             child: Text('Join OKAK Chat',
-                                style: GoogleFonts.dmSans(
+                                style: GoogleFonts.spaceGrotesk(
                                     fontSize: 13, color: AppTheme.textMid)),
                           ),
                           const SizedBox(height: 28),
@@ -139,12 +139,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text('Already have an account? ',
-                                  style: GoogleFonts.dmSans(
+                                  style: GoogleFonts.spaceGrotesk(
                                       fontSize: 12, color: AppTheme.textMid)),
                               GestureDetector(
                                 onTap: () => context.go('/auth/login'),
                                 child: Text('Sign in',
-                                    style: GoogleFonts.dmSans(
+                                    style: GoogleFonts.spaceGrotesk(
                                         fontSize: 12,
                                         color: AppTheme.blue400,
                                         fontWeight: FontWeight.w600)),

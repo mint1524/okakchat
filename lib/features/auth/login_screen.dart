@@ -66,6 +66,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget _buildMaterial(bool isLoading) => Scaffold(
         backgroundColor: AppTheme.bg,
         body: AnimatedBackground(
+          parallax: true,
           child: FadeTransition(
             opacity: _fadeAnim,
             child: SafeArea(
@@ -86,7 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           const SizedBox(height: 18),
                           Center(
                             child: Text('OKAK Chat',
-                                style: GoogleFonts.dmSans(
+                                style: GoogleFonts.spaceGrotesk(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w700,
                                     color: AppTheme.textHigh,
@@ -95,7 +96,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           const SizedBox(height: 4),
                           Center(
                             child: Text('Sign in to continue',
-                                style: GoogleFonts.dmSans(
+                                style: GoogleFonts.spaceGrotesk(
                                     fontSize: 13, color: AppTheme.textMid)),
                           ),
                           const SizedBox(height: 28),
@@ -137,12 +138,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text("Don't have an account? ",
-                                  style: GoogleFonts.dmSans(
+                                  style: GoogleFonts.spaceGrotesk(
                                       fontSize: 12, color: AppTheme.textMid)),
                               GestureDetector(
                                 onTap: () => context.go('/auth/register'),
                                 child: Text('Register',
-                                    style: GoogleFonts.dmSans(
+                                    style: GoogleFonts.spaceGrotesk(
                                         fontSize: 12,
                                         color: AppTheme.blue400,
                                         fontWeight: FontWeight.w600)),
@@ -177,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       const SizedBox(height: 16),
                       Center(
                         child: Text('OKAK Chat',
-                            style: GoogleFonts.dmSans(
+                            style: GoogleFonts.spaceGrotesk(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.textHigh)),
@@ -208,14 +209,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text('No account? ',
-                              style: GoogleFonts.dmSans(
+                              style: GoogleFonts.spaceGrotesk(
                                   fontSize: 12, color: AppTheme.textMid)),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             minSize: 0,
                             onPressed: () => context.go('/auth/register'),
                             child: Text('Register',
-                                style: GoogleFonts.dmSans(
+                                style: GoogleFonts.spaceGrotesk(
                                     fontSize: 12, color: AppTheme.blue400)),
                           ),
                         ],

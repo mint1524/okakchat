@@ -109,7 +109,7 @@ class _BubbleContent extends StatelessWidget {
               ],
             ),
             child: Text(message.content,
-                style: GoogleFonts.dmSans(
+                style: GoogleFonts.spaceGrotesk(
                     fontSize: 14, color: AppTheme.textHigh,
                     height: 1.5)),
           ),
@@ -145,22 +145,22 @@ class _BubbleContent extends StatelessWidget {
                       : message.content,
                   builders: {'code': _CodeBuilder()},
                   styleSheet: MarkdownStyleSheet(
-                    p: GoogleFonts.dmSans(
+                    p: GoogleFonts.spaceGrotesk(
                         fontSize: 14, color: AppTheme.textHigh, height: 1.6),
                     code: GoogleFonts.dmMono(
                         fontSize: 13,
                         color: AppTheme.blue300,
                         backgroundColor: AppTheme.surface2),
-                    blockquote: GoogleFonts.dmSans(
+                    blockquote: GoogleFonts.spaceGrotesk(
                         fontSize: 14, color: AppTheme.textMid,
                         fontStyle: FontStyle.italic),
-                    h1: GoogleFonts.dmSans(fontSize: 20,
+                    h1: GoogleFonts.spaceGrotesk(fontSize: 20,
                         fontWeight: FontWeight.w700, color: AppTheme.textHigh),
-                    h2: GoogleFonts.dmSans(fontSize: 17,
+                    h2: GoogleFonts.spaceGrotesk(fontSize: 17,
                         fontWeight: FontWeight.w600, color: AppTheme.textHigh),
-                    h3: GoogleFonts.dmSans(fontSize: 15,
+                    h3: GoogleFonts.spaceGrotesk(fontSize: 15,
                         fontWeight: FontWeight.w600, color: AppTheme.textHigh),
-                    listBullet: GoogleFonts.dmSans(
+                    listBullet: GoogleFonts.spaceGrotesk(
                         fontSize: 14, color: AppTheme.blue400),
                   ),
                 ),

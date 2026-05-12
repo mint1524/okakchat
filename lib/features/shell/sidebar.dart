@@ -51,7 +51,7 @@ class AppSidebar extends ConsumerWidget {
                           color: Colors.white, size: 16),
                     ),
                     const SizedBox(width: 10),
-                    Text('OKAK Chat', style: GoogleFonts.dmSans(
+                    Text('OKAK Chat', style: GoogleFonts.spaceGrotesk(
                         fontSize: 15, fontWeight: FontWeight.w700,
                         color: AppTheme.textHigh, letterSpacing: -0.3)),
                   ]),
@@ -110,7 +110,7 @@ class AppSidebar extends ConsumerWidget {
                         child: Center(child: Text(
                           user.email.isNotEmpty
                               ? user.email[0].toUpperCase() : '?',
-                          style: GoogleFonts.dmSans(fontSize: 13,
+                          style: GoogleFonts.spaceGrotesk(fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.blue300),
                         )),
@@ -118,7 +118,7 @@ class AppSidebar extends ConsumerWidget {
                       const SizedBox(width: 10),
                       Expanded(child: Text(user.email, maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.dmSans(
+                          style: GoogleFonts.spaceGrotesk(
                               fontSize: 11, color: AppTheme.textMid))),
                     ]),
                   ),
@@ -162,7 +162,7 @@ class _NewChatButtonState extends State<_NewChatButton> {
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.add_rounded, size: 16, color: AppTheme.blue400),
           const SizedBox(width: 6),
-          Text('New Chat', style: GoogleFonts.dmSans(
+          Text('New Chat', style: GoogleFonts.spaceGrotesk(
               fontSize: 13, fontWeight: FontWeight.w600,
               color: AppTheme.blue400)),
         ]),
@@ -215,7 +215,7 @@ class _NavItemState extends State<_NavItem> {
                     size: 17,
                     color: selected ? AppTheme.blue400 : AppTheme.textMid),
                 const SizedBox(width: 10),
-                Text(widget.label, style: GoogleFonts.dmSans(
+                Text(widget.label, style: GoogleFonts.spaceGrotesk(
                     fontSize: 13,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     color: selected ? AppTheme.blue300 : AppTheme.textMid)),

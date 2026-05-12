@@ -37,12 +37,12 @@ class AuthDarkField extends StatelessWidget {
         keyboardType: keyboardType,
         textInputAction: textInputAction,
         onSubmitted: onSubmitted,
-        style: GoogleFonts.dmSans(fontSize: 14, color: AppTheme.textHigh),
+        style: GoogleFonts.spaceGrotesk(fontSize: 14, color: AppTheme.textHigh),
         cursorColor: AppTheme.blue400,
         decoration: InputDecoration(
           labelText: label,
           labelStyle:
-              GoogleFonts.dmSans(fontSize: 13, color: AppTheme.textMid),
+              GoogleFonts.spaceGrotesk(fontSize: 13, color: AppTheme.textMid),
           prefixIcon: Icon(icon, size: 18, color: AppTheme.textMid),
           suffixIcon: suffix,
           filled: true,
@@ -85,7 +85,7 @@ class AuthErrorBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(message,
-                style: GoogleFonts.dmSans(
+                style: GoogleFonts.spaceGrotesk(
                     fontSize: 12, color: const Color(0xFFFCA5A5))),
           ),
         ]),
@@ -132,7 +132,7 @@ class AuthGlowButton extends StatelessWidget {
             elevation: 0,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10)),
-            textStyle: GoogleFonts.dmSans(
+            textStyle: GoogleFonts.spaceGrotesk(
                 fontSize: 15, fontWeight: FontWeight.w600),
           ),
           child: isLoading
