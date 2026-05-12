@@ -39,7 +39,7 @@ abstract class ToolExecutor {
   }
 }
 
-class DesktopToolExecutor implements ToolExecutor {
+class DesktopToolExecutor extends ToolExecutor {
   @override
   Future<String> readFile(String path) async {
     final file = File(path);
@@ -131,7 +131,4 @@ class DesktopToolExecutor implements ToolExecutor {
     return RegExp('^$pattern\$').hasMatch(path);
   }
 
-  @override
-  Future<String> dispatch(String toolName, Map<String, dynamic> args) =>
-      ToolExecutor.instance.dispatch(toolName, args);
 }

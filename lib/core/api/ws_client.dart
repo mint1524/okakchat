@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/auth/token_storage.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 
 const _wsBaseUrl = String.fromEnvironment(
   'WS_BASE_URL',
@@ -31,13 +33,20 @@ class WsClient {
     String? conversationId,
     List<Map<String, dynamic>>? tools,
   }) async* {
-    // token retrieved for future auth header usage
-    await TokenStorage.getAccessToken();
-    _channel = WebSocketChannel.connect(
-      Uri.parse('$_wsBaseUrl/api/ai/stream'),
-    );
+    final token = await TokenStorage.getAccessToken();
 
-    // Wait for connection to be established
+    // On native platforms send Authorization header; on web embed in payload
+    if (!kIsWeb && token != null) {
+      _channel = IOWebSocketChannel.connect(
+        Uri.parse('$_wsBaseUrl/api/ai/stream'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } else {
+      _channel = WebSocketChannel.connect(
+        Uri.parse('$_wsBaseUrl/api/ai/stream'),
+      );
+    }
+
     await _channel!.ready;
 
     final payload = jsonEncode({
@@ -45,7 +54,8 @@ class WsClient {
       'messages': messages,
       if (conversationId != null) 'conversationId': conversationId,
       if (tools != null) 'tools': tools,
-      // token sent in first frame for WS auth (server reads from JWT)
+      // fallback auth for web (server reads this if no header)
+      if (kIsWeb && token != null) '_token': token,
     });
     _channel!.sink.add(payload);
 
@@ -61,7 +71,6 @@ class WsClient {
           yield WsStreamResult(error: json['error'] as String);
           break;
         }
-        // OpenAI SSE chunk format
         final choices = json['choices'] as List?;
         if (choices != null && choices.isNotEmpty) {
           final delta = (choices.first as Map<String, dynamic>)['delta']

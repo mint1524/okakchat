@@ -15,12 +15,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/chat',
     redirect: (context, state) {
-      final isAuthenticated = authState.valueOrNull != null;
+      final user = authState.valueOrNull;
+      final isAuthenticated = user != null;
       final isLoading = authState.isLoading;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
+      final isAdminRoute = state.matchedLocation.startsWith('/admin');
       if (isLoading) return null;
       if (!isAuthenticated && !isAuthRoute) return '/auth/login';
       if (isAuthenticated && isAuthRoute) return '/chat';
+      if (isAdminRoute && !(user?.isAdmin ?? false)) return '/chat';
       return null;
     },
     routes: [

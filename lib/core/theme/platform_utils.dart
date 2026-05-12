@@ -9,6 +9,6 @@ class PlatformUtils {
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux;
   static bool get isWeb => kIsWeb;
-  static bool get supportsAgentMode => isDesktop || isWeb;
+  static bool get supportsAgentMode => isDesktop; // web excluded — dart:io unavailable
   static bool get supportsCommands => isDesktop;
 }
