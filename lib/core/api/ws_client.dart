@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:okakchat/core/auth/token_storage.dart';
+import 'package:okakchat/core/api/api_client.dart';
+import 'package:okakchat/core/auth/session_tokens.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 
@@ -36,10 +37,14 @@ class WsClient {
     String? systemPrompt,
     int? maxTokens,
   }) async* {
-    final token = await TokenStorage.getAccessToken();
+    final token = await getValidAccessToken(apiBaseUrl);
+    if (token == null) {
+      yield const WsStreamResult(error: 'Unauthorized');
+      return;
+    }
 
     // On native platforms send Authorization header; on web embed in payload
-    if (!kIsWeb && token != null) {
+    if (!kIsWeb) {
       _channel = IOWebSocketChannel.connect(
         Uri.parse('$_wsBaseUrl/api/ai/stream'),
         headers: {'Authorization': 'Bearer $token'},
@@ -61,7 +66,7 @@ class WsClient {
       if (systemPrompt != null && systemPrompt.isNotEmpty)
         'systemPrompt': systemPrompt,
       if (maxTokens != null) 'maxTokens': maxTokens,
-      if (kIsWeb && token != null) '_token': token,
+      if (kIsWeb) '_token': token,
     });
     _channel!.sink.add(payload);
 

@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
+import 'package:okakchat/core/auth/session_tokens.dart';
 import 'package:okakchat/core/auth/token_storage.dart';
-import 'package:okakchat/core/auth/auth_errors.dart';
 
-const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:80');
+const apiBaseUrl =
+    String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:80');
 
 Dio createApiClient(String baseUrl) {
   final dio = Dio(BaseOptions(
@@ -21,24 +22,11 @@ Dio createApiClient(String baseUrl) {
     },
     onError: (error, handler) async {
       if (error.response?.statusCode == 401) {
-        final refresh = await TokenStorage.getRefreshToken();
-        if (refresh != null) {
-          try {
-            final res = await Dio().post(
-              '$baseUrl/api/auth/refresh',
-              data: {'refreshToken': refresh},
-            );
-            final newAccess = res.data['accessToken'] as String;
-            final newRefresh = res.data['refreshToken'] as String;
-            await TokenStorage.saveTokens(newAccess, newRefresh);
-            error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
-            final retried = await dio.fetch(error.requestOptions);
-            return handler.resolve(retried);
-          } catch (_) {
-            await TokenStorage.clear();
-            // Notify authProvider so UI properly redirects to login
-            notifyTokenExpired();
-          }
+        final newAccess = await refreshAccessToken(baseUrl);
+        if (newAccess != null) {
+          error.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
+          final retried = await dio.fetch(error.requestOptions);
+          return handler.resolve(retried);
         }
       }
       handler.next(error);
@@ -48,5 +36,5 @@ Dio createApiClient(String baseUrl) {
   return dio;
 }
 
-final _dioInstance = createApiClient(_baseUrl);
+final _dioInstance = createApiClient(apiBaseUrl);
 Dio get globalDio => _dioInstance;
