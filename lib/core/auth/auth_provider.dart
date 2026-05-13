@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/api/api_client.dart';
 import 'package:okakchat/core/api/auth_api.dart';
 import 'package:okakchat/core/auth/token_storage.dart';
+import 'package:okakchat/core/auth/auth_errors.dart';
 
 final dioProvider = Provider((ref) => globalDio);
 final authApiProvider = Provider((ref) => AuthApi(ref.watch(dioProvider)));
@@ -20,6 +21,12 @@ class AuthUser {
 class AuthNotifier extends AsyncNotifier<AuthUser?> {
   @override
   Future<AuthUser?> build() async {
+    // When access token expires AND refresh fails, force logout from anywhere in the app
+    final sub = tokenExpiredEvents.listen((_) {
+      state = const AsyncData(null);
+    });
+    ref.onDispose(sub.cancel);
+
     final token = await TokenStorage.getAccessToken();
     if (token == null) return null;
     try {

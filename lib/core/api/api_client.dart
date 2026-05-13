@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:okakchat/core/auth/token_storage.dart';
+import 'package:okakchat/core/auth/auth_errors.dart';
 
 const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:80');
 
@@ -35,6 +36,8 @@ Dio createApiClient(String baseUrl) {
             return handler.resolve(retried);
           } catch (_) {
             await TokenStorage.clear();
+            // Notify authProvider so UI properly redirects to login
+            notifyTokenExpired();
           }
         }
       }
