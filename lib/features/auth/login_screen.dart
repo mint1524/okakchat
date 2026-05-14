@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
 import 'package:okakchat/core/widgets/glass_card.dart';
+import 'package:window_manager/window_manager.dart';
 import 'auth_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -65,99 +67,123 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Widget _buildMaterial(bool isLoading) => Scaffold(
         backgroundColor: AppTheme.bg,
-        body: AnimatedBackground(
-          parallax: true,
-          child: FadeTransition(
-            opacity: _fadeAnim,
-            child: SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 40),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 380),
-                    child: GlassCard(
-                      glowOpacity: 0.12,
-                      backgroundOpacity: 0.1,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Center(child: AuthBrandIcon()),
-                          const SizedBox(height: 18),
-                          Center(
-                            child: Text('OKAK Chat',
-                                style: GoogleFonts.sora(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textHigh,
-                                    letterSpacing: -0.5)),
-                          ),
-                          const SizedBox(height: 4),
-                          Center(
-                            child: Text('Sign in to continue',
-                                style: GoogleFonts.sora(
-                                    fontSize: 13, color: AppTheme.textMid)),
-                          ),
-                          const SizedBox(height: 28),
-                          AuthDarkField(
-                              controller: _emailCtrl,
-                              label: 'Email',
-                              icon: Icons.mail_outline_rounded,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next),
-                          const SizedBox(height: 12),
-                          AuthDarkField(
-                            controller: _passCtrl,
-                            label: 'Password',
-                            icon: Icons.lock_outline_rounded,
-                            obscureText: _obscure,
-                            onSubmitted: (_) => _submit(),
-                            suffix: IconButton(
-                              icon: Icon(
-                                _obscure
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 18, color: AppTheme.textMid,
-                              ),
-                              onPressed: () =>
-                                  setState(() => _obscure = !_obscure),
-                            ),
-                          ),
-                          if (_error != null) ...[
-                            const SizedBox(height: 12),
-                            AuthErrorBanner(message: _error!),
-                          ],
-                          const SizedBox(height: 20),
-                          AuthGlowButton(
-                              label: 'Sign in',
-                              onPressed: isLoading ? null : _submit,
-                              isLoading: isLoading),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+        body: Stack(
+          children: [
+            AnimatedBackground(
+              parallax: true,
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 40),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 380),
+                        child: GlassCard(
+                          glowOpacity: 0.12,
+                          backgroundOpacity: 0.1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text("Don't have an account? ",
-                                  style: GoogleFonts.sora(
-                                      fontSize: 12, color: AppTheme.textMid)),
-                              GestureDetector(
-                                onTap: () => context.go('/auth/register'),
-                                child: Text('Register',
+                              const Center(child: AuthBrandIcon()),
+                              const SizedBox(height: 18),
+                              Center(
+                                child: Text('OKAK Chat',
                                     style: GoogleFonts.sora(
-                                        fontSize: 12,
-                                        color: AppTheme.blue400,
-                                        fontWeight: FontWeight.w600)),
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textHigh,
+                                        letterSpacing: -0.5)),
+                              ),
+                              const SizedBox(height: 4),
+                              Center(
+                                child: Text('Sign in to continue',
+                                    style: GoogleFonts.sora(
+                                        fontSize: 13, color: AppTheme.textMid)),
+                              ),
+                              const SizedBox(height: 28),
+                              AuthDarkField(
+                                  controller: _emailCtrl,
+                                  label: 'Email',
+                                  icon: Icons.mail_outline_rounded,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next),
+                              const SizedBox(height: 12),
+                              AuthDarkField(
+                                controller: _passCtrl,
+                                label: 'Password',
+                                icon: Icons.lock_outline_rounded,
+                                obscureText: _obscure,
+                                onSubmitted: (_) => _submit(),
+                                suffix: IconButton(
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 18, color: AppTheme.textMid,
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                ),
+                              ),
+                              if (_error != null) ...[
+                                const SizedBox(height: 12),
+                                AuthErrorBanner(message: _error!),
+                              ],
+                              const SizedBox(height: 20),
+                              AuthGlowButton(
+                                  label: 'Sign in',
+                                  onPressed: isLoading ? null : _submit,
+                                  isLoading: isLoading),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text("Don't have an account? ",
+                                      style: GoogleFonts.sora(
+                                          fontSize: 12, color: AppTheme.textMid)),
+                                  GestureDetector(
+                                    onTap: () => context.go('/auth/register'),
+                                    child: Text('Register',
+                                        style: GoogleFonts.sora(
+                                            fontSize: 12,
+                                            color: AppTheme.blue400,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+            if (PlatformUtils.isDesktop && !kIsWeb)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: () => windowManager.close(),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface2.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: AppTheme.blue500.withValues(alpha: 0.2)),
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        size: 16, color: AppTheme.textMid),
+                  ),
+                ),
+              ),
+          ],
         ),
       );
 
@@ -213,7 +239,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   fontSize: 12, color: AppTheme.textMid)),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            minSize: 0,
+                            minimumSize: Size.zero,
                             onPressed: () => context.go('/auth/register'),
                             child: Text('Register',
                                 style: GoogleFonts.sora(

@@ -11,6 +11,14 @@ import 'package:okakchat/features/history/history_screen.dart';
 import 'package:okakchat/features/settings/settings_screen.dart';
 import 'package:okakchat/features/admin/admin_shell.dart';
 
+Page<void> _noAnimPage(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (_, __, ___, c) => c,
+  );
+}
+
 // ── Auth-change notifier for GoRouter.refreshListenable ──────────────────
 class _AuthChangeNotifier extends ChangeNotifier {
   _AuthChangeNotifier(Ref ref) {
@@ -54,25 +62,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/auth/login',    builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/auth/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/auth/login',    pageBuilder: (_, state) => _noAnimPage(state, const LoginScreen())),
+      GoRoute(path: '/auth/register', pageBuilder: (_, state) => _noAnimPage(state, const RegisterScreen())),
       GoRoute(
           path: '/auth/verify',
-          builder: (_, state) => VerifyScreen(
+          pageBuilder: (_, state) => _noAnimPage(state, VerifyScreen(
                 userId: state.uri.queryParameters['userId'] ?? '',
                 email:  state.uri.queryParameters['email']  ?? '',
-              )),
+              ))),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
-          GoRoute(path: '/chat',     builder: (_, __) => const ChatScreen()),
+          GoRoute(path: '/chat',     pageBuilder: (_, state) => _noAnimPage(state, const ChatScreen())),
           GoRoute(
               path: '/chat/:id',
-              builder: (_, state) =>
-                  ChatScreen(conversationId: state.pathParameters['id'])),
-          GoRoute(path: '/history',  builder: (_, __) => const HistoryScreen()),
-          GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
-          GoRoute(path: '/admin',    builder: (_, __) => const AdminShell()),
+              pageBuilder: (_, state) => _noAnimPage(state,
+                  ChatScreen(conversationId: state.pathParameters['id']))),
+          GoRoute(path: '/history',  pageBuilder: (_, state) => _noAnimPage(state, const HistoryScreen())),
+          GoRoute(path: '/settings', pageBuilder: (_, state) => _noAnimPage(state, const SettingsScreen())),
+          GoRoute(path: '/admin',    pageBuilder: (_, state) => _noAnimPage(state, const AdminShell())),
         ],
       ),
     ],
