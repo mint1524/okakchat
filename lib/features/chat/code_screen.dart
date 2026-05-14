@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
 import 'package:okakchat/core/widgets/notification_banner.dart';
+import 'package:okakchat/features/agent/tool_definitions.dart';
+import 'package:okakchat/features/agent/tools/tool_executor.dart';
 import 'chat_provider.dart';
 import 'chat_input.dart';
 import 'model_settings_sheet.dart';
@@ -28,6 +31,8 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
   String _statusText = '';
   Timer? _statusTimer;
   int _elapsedSeconds = 0;
+  StreamSubscription<Map<String, dynamic>>? _toolSub;
+  bool _processing = false;
 
   @override
   void initState() {
@@ -36,6 +41,7 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
       try {
         await ref.read(codeProvider.notifier).loadModels();
       } catch (_) {}
+      _toolSub = ref.read(codeProvider.notifier).toolCallStream.listen(_handleToolCall);
     });
   }
 
@@ -43,7 +49,73 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
   void dispose() {
     _scrollCtrl.dispose();
     _statusTimer?.cancel();
+    _toolSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _handleToolCall(Map<String, dynamic> toolCall) async {
+    final settings = ref.read(codeProvider).codeSettings;
+    final function = toolCall['function'] as Map<String, dynamic>?;
+    if (function == null) return;
+
+    final toolName = function['name'] as String;
+    final args = jsonDecode(function['arguments'] as String) as Map<String, dynamic>;
+
+    // Bypass (full) — никогда не спрашиваем, как в Claude/Codex.
+    // ask/plan — спрашиваем всё неоднозначное (любые tool calls).
+    final needsConfirm = settings.agentMode != 'full';
+    if (needsConfirm) {
+      final confirmed = await _showToolConfirm(toolName, args);
+      if (!confirmed) {
+        ref.read(codeProvider.notifier).continueWithToolResult(
+          toolName, 'User skipped this action.',
+          tools: agentTools,
+        );
+        return;
+      }
+    }
+
+    setState(() => _processing = true);
+    final genAtStart = ref.read(codeProvider.notifier).generationId;
+    final executor = DesktopToolExecutor();
+    final result = await executor.dispatch(toolName, args);
+    if (!mounted) return;
+    setState(() => _processing = false);
+
+    if (ref.read(codeProvider.notifier).isCancelled) return;
+    if (ref.read(codeProvider.notifier).generationId != genAtStart) return;
+
+    ref.read(codeProvider.notifier).continueWithToolResult(
+      toolName, result,
+      tools: agentTools,
+    );
+  }
+
+  Future<bool> _showToolConfirm(String toolName, Map<String, dynamic> args) async {
+    final dangerous = toolName == 'execute_command';
+    return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: Text(dangerous ? '⚠ Run command?' : 'Allow: $toolName'),
+            content: SingleChildScrollView(
+              child: Text(
+                args.entries.map((e) => '${e.key}: ${e.value}').join('\n'),
+                style: GoogleFonts.dmMono(fontSize: 11),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Deny'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(dangerous ? 'Run' : 'Allow'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void _updateStatus() {
@@ -160,9 +232,11 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
           Container(
               height: 1,
               color: AppTheme.blue500.withValues(alpha: 0.1)),
-          // Status bar during streaming
+          // Status bar during streaming or tool processing
           if (_statusText.isNotEmpty)
             _AgentStatusBar(text: _statusText),
+          if (_processing && _statusText.isEmpty)
+            _AgentStatusBar(text: '\u00b7 Executing tool\u2026'),
           Expanded(
             child: isMobile
                 ? _MobileLayout(
@@ -180,6 +254,14 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
                   ),
           ),
           _GlassCodeInput(onSend: _scrollToBottom),
+          if (_processing)
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: LinearProgressIndicator(
+                backgroundColor: AppTheme.blue500.withValues(alpha: 0.15),
+                color: AppTheme.blue400,
+              ),
+            ),
         ]),
       ]),
     );
@@ -1061,6 +1143,7 @@ class _GlassCodeInput extends StatelessWidget {
             child: ChatInput(
               onSend: onSend,
               provider: codeProvider,
+              tools: agentTools,
             ),
           ),
         ),

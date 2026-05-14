@@ -43,6 +43,20 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
   Offset _parallax2 = Offset.zero;
 
   @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
+    _particles = List.generate(
+      widget.particleCount,
+      (_) => _Particle.random(_rng),
+    );
+    _assignShapeTargets();
+  }
+
+  @override
   void didUpdateWidget(AnimatedBackground old) {
     super.didUpdateWidget(old);
     if (old.particleCount != widget.particleCount) {

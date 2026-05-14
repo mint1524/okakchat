@@ -4,76 +4,30 @@
 
 ---
 
-## Что сделано
+## Что сделано (сессия 3)
 
-### 1. Инлайн-маркдаун (message_bubble.dart)
-- `_CodeBuilder` теперь отличает inline code от fenced code blocks: если код короткий (<80 символов) и без `\n`, возвращает `null` → MarkdownStyleSheet.code обрабатывает как инлайн
-- Inline code перестал рендериться как отдельный блок plaintext
+### 9. confirmTools + обработка отмены тулов (code_screen.dart, chat_provider.dart)
+- **confirmTools**: опасные тулы (`write_file`, `edit_file`, `execute_command`) теперь требуют подтверждения даже в `full` режиме
+  - `plan`/`ask`: подтверждение для всех тулов
+  - `full`: авто-исполнение для чтения/поиска, диалог для записи/редактирования/команд
+- **progress indicator**: `LinearProgressIndicator` на время выполнения тула
+- **status bar**: при выполнении тула показывает `· Executing tool…`
+- **Гвард отмены**: `_handleToolCall` проверяет `isCancelled` после выполнения тула — если пользователь нажал Stop, результат не отправляется AI
+- **generationId**: счётчик `_generationId` + проверка в `_handleToolCall` — защита от race condition, когда тул завершается после начала новой сессии (нового `sendMessage`)
+- **Публичный `isCancelled`**: геттер в `ChatNotifier`, чтобы `code_screen.dart` мог проверить флаг отмены
 
-### 2. Контекстное окно из API (chat_provider.dart)
-- Добавлено поле `contextLimit` в `ChatState` — полный контекст модели
-- `loadModels()` теперь парсит `contextWindow`/`maxTokens`/`context_length`/`max_context` из ответа API
-- `selectModel()` автоматически обновляет `maxTokens` и `contextLimit` при смене модели
-- `contextFillFraction` теперь считается от `contextLimit`, а не от `maxTokens`
-- `newChat()` сохраняет `contextLimit` модели
-
-### 3. Агентский режим (code_screen.dart)
-- Добавлен `_AgentStatusBar` — статусная строка под top bar: спиннер + `· Transfiguring… (3m 49s · ↑ 8.4k tokens)`
-- Таймер отслеживает elapsed time во время стриминга
-- Менеджер статуса (`_updateStatus`) показывает разный текст для full/plan/ask режимов
-- `_ToolCallInline` — инструменты (tool calls) отображаются inline с детекцией типа (Edit/Run/Read/Search)
-- Tool calls можно сворачивать/разворачивать
-- Формирование частиц на фоне (ParticleFormation) зависит от режима: gear (full), brain (plan), code (ask)
-
-### 4. Дизайн (chat_input.dart, model_selector.dart)
-- **Модель без рамки**: `_ModelDropdown` — просто текст + иконка + chevron, без контейнера/рамки
-- **Кнопки без рамок**: `_SendButton` — без shadow/border, `_StopButton` — без border, `_AttachBtn` — 32×32 без фона
-- **Скрепка в поле ввода**: `_AttachBtn` встроена внутрь `Container` текстового поля, слева от `TextField`
-- **Bottom bar**: Settings и Model selector — всё минималистично, мелкий текст, без рамок
-- **Контекст**: _ContextChip показывает % от `contextLimit`
-
-### 5. Плавный стриминг (message_bubble.dart)
-- Во время стриминга MarkdownBody рендерится напрямую (без AnimatedSwitcher) — никаких лишних crossfade-анимаций на каждом чанке
-- AnimatedSwitcher остаётся только для финального (не streaming) сообщения — плавный переход при завершении
-
-### 6. Анимация звёзд (animated_background.dart)
-- Добавлен `ParticleFormation` enum: `none`, `circle`, `hammer`, `code`, `brain`, `gear`
-- `AnimatedBackground` принимает `formation` и `formationProgress`
-- Частицы плавно перелетают (lerp) в целевые позиции при смене формации
-- 6 shape-генераторов: circle (кольцо), hammer (молоток), code (</>), brain (нейро-форма), gear (шестерёнка)
-- FPS контролируется через AnimationController (1s repeat — ~60fps с учётом vsync)
-
-### 7. Скиллы (chat_input.dart, code_screen.dart)
-- Добавлено 8 новых slash skills: `/arch`, `/api`, `/db`, `/deploy`, `/ci`, `/fix`, `/pr`, `/commit`
-- В Code пустой экран добавлены 3 GitHub-подсказки: "Set up GitHub Actions CI", "Write a GitHub workflow", "Review this PR for issues"
-
----
-
-## Изменённые файлы
+## Изменённые файлы (сессия 3)
 
 | File | Changes |
 |------|---------|
-| `lib/core/widgets/animated_background.dart` | ParticleFormation shapes, lerp animation, target positions |
-| `lib/features/chat/chat_provider.dart` | contextLimit, _contextLimitFor, selectModel context update |
-| `lib/features/chat/message_bubble.dart` | inline code fix, streaming без AnimatedSwitcher |
-| `lib/features/chat/chat_input.dart` | frameless model/buttons, attach in input, +8 skills |
-| `lib/features/chat/code_screen.dart` | AgentStatusBar, ToolCallInline, status timer, particle formations |
-| `CHECKPOINT.md` | этот файл |
-
----
-
-## Что осталось (если нужно продолжать)
-
-1. **Agent file operations** — реальная интеграция `DesktopToolExecutor` с code_screen для чтения/записи файлов из агента
-2. **GitHub skills** — установка GitHub Actions workflows через UI в code mode
-3. **Anthropic skills** — интеграция с Anthropic API (Claude Code)
-4. **Мобильная адаптация** — проверить и донастроить compact layout на телефонах
-5. **Backend контекст** — если API не возвращает `contextWindow`, донастроить парсер в `_contextLimitFor`
+| `lib/features/chat/chat_provider.dart` | `isCancelled`, `generationId`, инкремент в `sendMessage`/`continueWithToolResult` |
+| `lib/features/chat/code_screen.dart` | `_processing`, `confirmTools`, progress indicator, status bar, `generationId` guard |
+| `CHECKPOINT.md` | обновление |
 
 ---
 
 ## Команда проверки
 
 ```bash
-dart analyze lib/
+/Users/min7t/flutter/bin/dart analyze lib/
 ```

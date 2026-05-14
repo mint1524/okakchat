@@ -37,6 +37,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(ChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.conversationId != oldWidget.conversationId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (widget.conversationId != null) {
+          await ref
+              .read(chatProvider.notifier)
+              .loadConversation(widget.conversationId!);
+        } else {
+          ref.read(chatProvider.notifier).newChat();
+        }
+      });
+    }
+  }
+
   void _onScroll() {
     final show = _scrollCtrl.hasClients &&
         _scrollCtrl.position.maxScrollExtent - _scrollCtrl.offset > 120;

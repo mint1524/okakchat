@@ -168,6 +168,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
   final Ref _ref;
   final bool isCodeMode;
   bool _cancelled = false;
+  int _generationId = 0;
+  int get generationId => _generationId;
 
   // ── Models ───────────────────────────────────────────────────────────────
 
@@ -200,7 +202,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   Future<void> loadConversation(String id) async {
-    state = state.copyWith(conversationId: id, isLoading: true);
+    state = state.copyWith(
+      conversationId: id,
+      messages: [],
+      isLoading: true,
+    );
     try {
       final msgs = await _ref.read(chatApiProvider).getMessages(id);
       state = state.copyWith(
@@ -257,6 +263,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   // ── Stop ─────────────────────────────────────────────────────────────────
 
+  bool get isCancelled => _cancelled;
+
   void cancel() {
     _cancelled = true;
     _ref.read(wsClientProvider).cancel();
@@ -267,6 +275,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> sendMessage(String content,
       {List<Map<String, dynamic>>? tools}) async {
     _cancelled = false;
+    _generationId++;
     final userMsg = ChatMessage(role: 'user', content: content);
     final assistantMsg =
         ChatMessage(role: 'assistant', content: '', isStreaming: true);
@@ -306,12 +315,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
     state = state.copyWith(
       messages: [...state.messages, userMsg, assistantMsg],
       isLoading: true,
-      attachedFiles: [],  // clear after send
+      attachedFiles: [],
     );
 
     String? convId = state.conversationId;
     try {
-      // Auto-title from first message
       final title = content.length > 50
           ? '${content.substring(0, 50)}…'
           : content;
@@ -321,12 +329,53 @@ class ChatNotifier extends StateNotifier<ChatState> {
             isCodeMode ? 'coding' : 'chat',
           );
       _ref.invalidate(conversationsProvider);
-
       await _ref.read(chatApiProvider).addMessage(convId, 'user', content);
     } catch (_) {}
 
-    final wsMessages = state.messages
-        .where((m) => !m.isStreaming)
+    await _streamResponse(
+      convId: convId,
+      messages: state.messages.where((m) => !m.isStreaming).toList(),
+      assistantMsg: assistantMsg,
+      tools: tools,
+      filesToSend: filesToSend,
+      userContent: content,
+    );
+  }
+
+  /// Continue after a tool result: re-sends the conversation to the AI.
+  Future<void> continueWithToolResult(
+    String toolName, String result, {
+    List<Map<String, dynamic>>? tools,
+  }) async {
+    if (_cancelled) return;
+    _generationId++;
+    // Add tool result to conversation history
+    final toolMsg = ChatMessage(role: 'tool', content: '$toolName:\n$result');
+    final assistantMsg =
+        ChatMessage(role: 'assistant', content: '', isStreaming: true);
+
+    state = state.copyWith(
+      messages: [...state.messages, toolMsg, assistantMsg],
+      isLoading: true,
+    );
+
+    await _streamResponse(
+      convId: state.conversationId,
+      messages: state.messages.where((m) => !m.isStreaming).toList(),
+      assistantMsg: assistantMsg,
+      tools: tools,
+    );
+  }
+
+  Future<void> _streamResponse({
+    required String? convId,
+    required List<ChatMessage> messages,
+    required ChatMessage assistantMsg,
+    List<Map<String, dynamic>>? tools,
+    List<Map<String, String>>? filesToSend,
+    String? userContent,
+  }) async {
+    final wsMessages = messages
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
@@ -338,7 +387,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           temperature: state.temperature,
           systemPrompt: state.systemPrompt,
           maxTokens: state.maxTokens,
-          files: filesToSend.isNotEmpty ? filesToSend : null,
+          files: filesToSend?.isNotEmpty == true ? filesToSend : null,
         );
 
     final buffer = StringBuffer();
@@ -386,9 +435,9 @@ class ChatNotifier extends StateNotifier<ChatState> {
           await _ref
               .read(chatApiProvider)
               .addMessage(convId, 'assistant', assistantMsg.content);
-          // Auto-generate title after first exchange
-          if (state.conversationId == null) {
-            final betterTitle = _generateTitle(content, assistantMsg.content);
+          if (state.conversationId == null && userContent != null) {
+            final betterTitle =
+                _generateTitle(userContent, assistantMsg.content);
             await _ref
                 .read(chatApiProvider)
                 .updateConversation(convId, title: betterTitle);
