@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,9 @@ class CodeScreen extends ConsumerStatefulWidget {
 class _CodeScreenState extends ConsumerState<CodeScreen> {
   final _scrollCtrl = ScrollController();
   int? _focusedSnippetIndex;
+  String _statusText = '';
+  Timer? _statusTimer;
+  int _elapsedSeconds = 0;
 
   @override
   void initState() {
@@ -38,7 +42,38 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _statusTimer?.cancel();
     super.dispose();
+  }
+
+  void _updateStatus() {
+    final state = ref.read(codeProvider);
+    final lastMsg = state.messages.isNotEmpty ? state.messages.last : null;
+    if (state.isLoading || (lastMsg?.isStreaming ?? false)) {
+      final totalTokens = state.estimatedTokensUsed;
+      final elapsed = _elapsedSeconds;
+      final mins = elapsed ~/ 60;
+      final secs = elapsed % 60;
+      final timeStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
+      if (state.codeSettings.agentMode == 'full') {
+        _statusText = '\u00b7 Transfiguring\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
+      } else if (state.codeSettings.agentMode == 'plan') {
+        _statusText = '\u00b7 Planning\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
+      } else {
+        _statusText = '\u00b7 Thinking\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
+      }
+    } else {
+      _statusText = '';
+      _elapsedSeconds = 0;
+      _statusTimer?.cancel();
+      _statusTimer = null;
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _fmtTokens(int n) {
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
+    return n.toString();
   }
 
   void _scrollToBottom() {
@@ -83,20 +118,51 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
         _scrollToBottom();
         setState(() => _focusedSnippetIndex = null);
       }
+      final wasLoading = prev?.isLoading ?? false;
+      final nowLoading = next.isLoading;
+      if (!wasLoading && nowLoading) {
+        _elapsedSeconds = 0;
+        _statusTimer?.cancel();
+        _statusTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          _elapsedSeconds++;
+          _updateStatus();
+        });
+        _updateStatus();
+      } else if (wasLoading && !nowLoading) {
+        _statusTimer?.cancel();
+        _statusTimer = null;
+        _updateStatus();
+      }
     });
 
     final snippets = _extractSnippets(state.messages);
     final isMobile = MediaQuery.of(context).size.width < 700;
 
+    // Determine particle formation based on agent state
+    final formation = state.isLoading
+        ? (state.codeSettings.agentMode == 'full'
+            ? ParticleFormation.gear
+            : state.codeSettings.agentMode == 'plan'
+                ? ParticleFormation.brain
+                : ParticleFormation.code)
+        : ParticleFormation.none;
+
     return NotificationBannerStack(
       child: Stack(children: [
-        const Positioned.fill(
-            child: AnimatedBackground(particleCount: 14)),
+        Positioned.fill(
+            child: AnimatedBackground(
+              particleCount: 14,
+              formation: formation,
+              formationProgress: state.isLoading ? 0.6 : 0.0,
+            )),
         Column(children: [
           _CodeTopBar(),
           Container(
               height: 1,
               color: AppTheme.blue500.withValues(alpha: 0.1)),
+          // Status bar during streaming
+          if (_statusText.isNotEmpty)
+            _AgentStatusBar(text: _statusText),
           Expanded(
             child: isMobile
                 ? _MobileLayout(
@@ -118,6 +184,41 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
       ]),
     );
   }
+}
+
+// ── Agent status bar ────────────────────────────────────────────────────
+
+class _AgentStatusBar extends StatelessWidget {
+  const _AgentStatusBar({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 26,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.blue500.withValues(alpha: 0.08),
+          border: Border(
+              bottom: BorderSide(
+                  color: AppTheme.blue500.withValues(alpha: 0.1))),
+        ),
+        child: Row(children: [
+          SizedBox(
+            width: 8,
+            height: 8,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppTheme.blue400,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(text,
+              style: GoogleFonts.dmMono(
+                  fontSize: 10,
+                  color: AppTheme.blue300,
+                  fontWeight: FontWeight.w500)),
+        ]),
+      );
 }
 
 // ── Top bar ───────────────────────────────────────────────────────────────
@@ -163,7 +264,7 @@ class _CodeTopBar extends ConsumerWidget {
             // Context fill bar
             Tooltip(
               message:
-                  '~${state.estimatedTokensUsed} / ${state.maxTokens} tokens',
+                  '~${state.estimatedTokensUsed} / ${state.contextLimit} tokens',
               child: SizedBox(
                 width: 60,
                 child: Column(
@@ -617,29 +718,7 @@ class _CompactMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (message.role == 'tool') {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppTheme.surface1,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.12)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.terminal_rounded,
-                  size: 13, color: AppTheme.blue400),
-              const SizedBox(width: 6),
-              Text('Tool call',
-                  style: GoogleFonts.dmMono(
-                      fontSize: 11, color: AppTheme.blue300)),
-            ],
-          ),
-        ),
-      );
+      return _ToolCallInline(message: message);
     }
     if (message.role == 'user') {
       return Align(
@@ -998,6 +1077,9 @@ class _CodeEmptyState extends ConsumerWidget {
     'Explain this algorithm',
     'Debug my function',
     'Refactor for readability',
+    'Set up GitHub Actions CI',
+    'Write a GitHub workflow',
+    'Review this PR for issues',
   ];
 
   @override
@@ -1058,6 +1140,114 @@ class _CodeEmptyState extends ConsumerWidget {
                   .toList(),
             ),
           ]),
+        ),
+      );
+}
+
+// ── Tool call inline display ────────────────────────────────────────────
+
+class _ToolCallInline extends StatefulWidget {
+  const _ToolCallInline({required this.message});
+  final ChatMessage message;
+
+  @override
+  State<_ToolCallInline> createState() => _ToolCallInlineState();
+}
+
+class _ToolCallInlineState extends State<_ToolCallInline> {
+  bool _expanded = false;
+
+  String _detectToolName(String content) {
+    if (content.contains('write_file') || content.contains('edit_file')) return 'Edit';
+    if (content.contains('execute_command')) return 'Run';
+    if (content.contains('read_file') || content.contains('grep')) return 'Read';
+    if (content.contains('web_search') || content.contains('fetch')) return 'Search';
+    return 'Tool';
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: GestureDetector(
+          onTap: () {
+            setState(() => _expanded = !_expanded);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.surface1.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                  color: AppTheme.blue500.withValues(alpha: 0.12)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppTheme.blue500.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(Icons.terminal_rounded,
+                      size: 12, color: AppTheme.blue400),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Text(
+                          _detectToolName(widget.message.content),
+                          style: GoogleFonts.dmMono(
+                              fontSize: 10,
+                              color: AppTheme.blue300,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          _expanded
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          size: 12,
+                          color: AppTheme.textLow,
+                        ),
+                      ]),
+                      if (_expanded) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0D1117),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            widget.message.content,
+                            style: GoogleFonts.dmMono(
+                                fontSize: 10,
+                                color: AppTheme.textMid,
+                                height: 1.5),
+                          ),
+                        ),
+                      ] else
+                        Text(
+                          widget.message.content.length > 60
+                              ? '${widget.message.content.substring(0, 60)}\u2026'
+                              : widget.message.content,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.dmMono(
+                              fontSize: 10, color: AppTheme.textLow),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
 }
