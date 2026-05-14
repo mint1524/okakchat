@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "windsurf/claude-sonnet-4.6",
+  "small_model": "windsurf/claude-sonnet-4.6",
+  "provider": {
+    "windsurf": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "WindsurfAPI",
+      "options": {
+        "baseURL": "https://wind.okak.club/v1",
+        "apiKey": "{env:WINDSURF_API_KEY}",
+        "timeout": 600000,
+        "chunkTimeout": 60000
+      },
+      "models": {
+        "claude-sonnet-4.6": {
+          "name": "Claude Sonnet 4.6",
+          "limit": {
+            "context": 200000,
+            "output": 32000
+          }
+        },
+        "claude-opus-4-7-high": {
+          "name": "Claude Opus 4.7 High",
+          "limit": {
+            "context": 1000000,
+            "output": 64000
+          }
+        },
+        "claude-opus-4-7-medium": {
+          "name": "Claude Opus 4.7 Medium",
+          "limit": {
+            "context": 1000000,
+            "output": 64000
+          }
+        },
+        "gpt-5.5": {
+          "name": "GPT-5.5",
+          "limit": {
+            "context": 400000,
+            "output": 64000
+          }
+        }
+      }
+    }
+  }
+}

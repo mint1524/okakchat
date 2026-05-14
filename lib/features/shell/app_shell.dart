@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/core/providers/settings_provider.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
 import 'package:window_manager/window_manager.dart';
@@ -19,20 +20,33 @@ class AppShell extends ConsumerWidget {
     final user    = ref.watch(authProvider).valueOrNull;
     final isAdmin = user?.isAdmin ?? false;
     final location = GoRouterState.of(context).matchedLocation;
+    final settings = ref.watch(settingsProvider);
+    final sidebarOpen = settings.sidebarOpen;
+
+    Widget sidebarSide;
+    if (sidebarOpen) {
+      sidebarSide = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppSidebar(currentLocation: location, isAdmin: isAdmin),
+          Container(width: 1,
+              color: AppTheme.blue500.withValues(alpha: 0.1)),
+        ],
+      );
+    } else {
+      sidebarSide = const _CollapsedSidebarAffordance();
+    }
 
     if (PlatformUtils.isDesktop) {
       return Scaffold(
         backgroundColor: AppTheme.bg,
         body: Column(
           children: [
-            // Custom title bar (desktop only, not web)
             if (!kIsWeb) const _CustomTitleBar(),
             Expanded(
               child: Row(
                 children: [
-                  AppSidebar(currentLocation: location, isAdmin: isAdmin),
-                  Container(width: 1,
-                      color: AppTheme.blue500.withValues(alpha: 0.1)),
+                  sidebarSide,
                   Expanded(child: child),
                 ],
               ),
@@ -47,9 +61,7 @@ class AppShell extends ConsumerWidget {
         backgroundColor: AppTheme.bg,
         body: Row(
           children: [
-            AppSidebar(currentLocation: location, isAdmin: isAdmin),
-            Container(width: 1,
-                color: AppTheme.blue500.withValues(alpha: 0.1)),
+            sidebarSide,
             Expanded(child: child),
           ],
         ),
@@ -267,7 +279,60 @@ class _WinButtonState extends State<_WinButton> {
                   ? Colors.white
                   : AppTheme.textMid,
             ),
+            ),
           ),
+        ),
+      );
+    }
+  }
+
+// ── Collapsed sidebar affordance ────────────────────────────────────────────
+
+class _CollapsedSidebarAffordance extends ConsumerWidget {
+  const _CollapsedSidebarAffordance();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => ref.read(settingsProvider.notifier).setSidebarOpen(true),
+      child: Container(
+        width: 40,
+        decoration: BoxDecoration(
+          color: AppTheme.bg,
+          border: Border(
+            right: BorderSide(
+                color: AppTheme.blue500.withValues(alpha: 0.12)),
+          ),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 14),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppTheme.blue700,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: AppTheme.blue500.withValues(alpha: 0.4)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.blue500.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.auto_awesome_rounded,
+                  color: Colors.white, size: 14),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Icon(Icons.chevron_right_rounded,
+                  color: AppTheme.textMid, size: 18),
+            ),
+          ],
         ),
       ),
     );

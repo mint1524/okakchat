@@ -79,14 +79,16 @@ const _lengths = [
 // ── Sheet ─────────────────────────────────────────────────────────────────
 
 class ModelSettingsSheet extends ConsumerStatefulWidget {
-  const ModelSettingsSheet._();
+  const ModelSettingsSheet._({this.provider});
+  final StateNotifierProvider<ChatNotifier, ChatState>? provider;
 
-  static void show(BuildContext context) {
+  static void show(BuildContext context,
+      {StateNotifierProvider<ChatNotifier, ChatState>? provider}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const ModelSettingsSheet._(),
+      builder: (_) => ModelSettingsSheet._(provider: provider),
     );
   }
 
@@ -99,10 +101,13 @@ class _ModelSettingsSheetState extends ConsumerState<ModelSettingsSheet> {
   late TextEditingController _sysCtrl;
   bool _showSystemPrompt = false;
 
+  StateNotifierProvider<ChatNotifier, ChatState> get _provider =>
+      widget.provider ?? chatProvider;
+
   @override
   void initState() {
     super.initState();
-    final s = ref.read(chatProvider);
+    final s = ref.read(_provider);
     _sysCtrl = TextEditingController(text: s.systemPrompt ?? '');
     _showSystemPrompt =
         s.systemPrompt != null && s.systemPrompt!.isNotEmpty;
@@ -123,7 +128,7 @@ class _ModelSettingsSheetState extends ConsumerState<ModelSettingsSheet> {
   }
 
   void _applyPreset(_Preset p) {
-    final n = ref.read(chatProvider.notifier);
+    final n = ref.read(_provider.notifier);
     n.setTemperature(p.temperature);
     n.setMaxTokens(p.maxTokens);
     if (p.systemPrompt != null) {
@@ -135,8 +140,8 @@ class _ModelSettingsSheetState extends ConsumerState<ModelSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(chatProvider);
-    final notifier = ref.read(chatProvider.notifier);
+    final state = ref.watch(_provider);
+    final notifier = ref.read(_provider.notifier);
     final activePreset = _activePresetId(state);
     final activeLength = _lengths.firstWhere(
       (l) => l.tokens == state.maxTokens,

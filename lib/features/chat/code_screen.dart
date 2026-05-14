@@ -8,12 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
+import 'package:okakchat/core/widgets/notification_banner.dart';
 import 'chat_provider.dart';
 import 'chat_input.dart';
-import 'model_selector.dart';
 import 'model_settings_sheet.dart';
-
-// ── Entry point ───────────────────────────────────────────────────────────
+import 'message_bubble.dart' show _TypingIndicator;
 
 class CodeScreen extends ConsumerStatefulWidget {
   const CodeScreen({super.key});
@@ -23,7 +22,17 @@ class CodeScreen extends ConsumerStatefulWidget {
 
 class _CodeScreenState extends ConsumerState<CodeScreen> {
   final _scrollCtrl = ScrollController();
-  int? _focusedCodeBlockIndex;
+  int? _focusedSnippetIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref.read(codeProvider.notifier).loadModels();
+      } catch (_) {}
+    });
+  }
 
   @override
   void dispose() {
@@ -36,14 +45,13 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 280),
+          duration: const Duration(milliseconds: 260),
           curve: Curves.easeOutCubic,
         );
       }
     });
   }
 
-  /// Extract all code blocks from messages for the right panel
   List<_CodeSnippet> _extractSnippets(List<ChatMessage> messages) {
     final snippets = <_CodeSnippet>[];
     for (final msg in messages.reversed) {
@@ -61,48 +69,265 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
           ),
         );
       }
-      if (snippets.isNotEmpty) break; // show snippets from latest reply
+      if (snippets.isNotEmpty) break;
     }
     return snippets;
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(chatProvider);
-    ref.listen(chatProvider, (prev, next) {
+    final state = ref.watch(codeProvider);
+    ref.listen(codeProvider, (prev, next) {
       if (next.messages.length != prev?.messages.length) {
         _scrollToBottom();
-        setState(() => _focusedCodeBlockIndex = null);
+        setState(() => _focusedSnippetIndex = null);
       }
     });
 
     final snippets = _extractSnippets(state.messages);
     final isMobile = MediaQuery.of(context).size.width < 700;
 
-    return Stack(children: [
-      const Positioned.fill(child: AnimatedBackground(particleCount: 14)),
-      Column(children: [
-        _CodeTopBar(state: state),
-        Container(height: 1, color: AppTheme.blue500.withValues(alpha: 0.1)),
-        Expanded(
-          child: isMobile
-              ? _MobileLayout(
-                  state: state,
-                  scrollCtrl: _scrollCtrl,
-                  snippets: snippets,
-                )
-              : _DesktopLayout(
-                  state: state,
-                  scrollCtrl: _scrollCtrl,
-                  snippets: snippets,
-                  focusedIndex: _focusedCodeBlockIndex,
-                  onFocus: (i) => setState(() => _focusedCodeBlockIndex = i),
-                ),
-        ),
-        _GlassCodeInput(onSend: _scrollToBottom),
+    return NotificationBannerStack(
+      child: Stack(children: [
+        const Positioned.fill(
+            child: AnimatedBackground(particleCount: 14)),
+        Column(children: [
+          _CodeTopBar(),
+          Container(
+              height: 1,
+              color: AppTheme.blue500.withValues(alpha: 0.1)),
+          Expanded(
+            child: isMobile
+                ? _MobileLayout(
+                    state: state,
+                    scrollCtrl: _scrollCtrl,
+                    snippets: snippets,
+                  )
+                : _DesktopLayout(
+                    state: state,
+                    scrollCtrl: _scrollCtrl,
+                    snippets: snippets,
+                    focusedIndex: _focusedSnippetIndex,
+                    onFocus: (i) =>
+                        setState(() => _focusedSnippetIndex = i),
+                  ),
+          ),
+          _GlassCodeInput(onSend: _scrollToBottom),
+        ]),
       ]),
-    ]);
+    );
   }
+}
+
+// ── Top bar ───────────────────────────────────────────────────────────────
+
+class _CodeTopBar extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(codeProvider);
+    final settings = state.codeSettings;
+    final fill = state.contextFillFraction;
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration:
+              BoxDecoration(color: AppTheme.bg.withValues(alpha: 0.7)),
+          child: Row(children: [
+            // Code mode badge
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.blue500.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                    color: AppTheme.blue500.withValues(alpha: 0.35)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.code_rounded,
+                    size: 13, color: AppTheme.blue400),
+                const SizedBox(width: 5),
+                Text('Code',
+                    style: GoogleFonts.sora(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.blue300)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            // Context fill bar
+            Tooltip(
+              message:
+                  '~${state.estimatedTokensUsed} / ${state.maxTokens} tokens',
+              child: SizedBox(
+                width: 60,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${(fill * 100).round()}% ctx',
+                      style: GoogleFonts.sora(
+                          fontSize: 9,
+                          color: fill > 0.8
+                              ? const Color(0xFFEF4444)
+                              : AppTheme.textLow),
+                    ),
+                    const SizedBox(height: 2),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: fill,
+                        backgroundColor:
+                            AppTheme.surface2,
+                        valueColor: AlwaysStoppedAnimation(
+                          fill > 0.8
+                              ? const Color(0xFFEF4444)
+                              : fill > 0.6
+                                  ? const Color(0xFFF59E0B)
+                                  : AppTheme.blue400,
+                        ),
+                        minHeight: 3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Permission chips
+            _PermChip(
+              label: 'Files',
+              icon: Icons.folder_open_rounded,
+              active: settings.allowFileEdits,
+              onTap: () => ref
+                  .read(codeProvider.notifier)
+                  .setCodeSettings(settings.copyWith(
+                      allowFileEdits: !settings.allowFileEdits)),
+            ),
+            const SizedBox(width: 4),
+            _PermChip(
+              label: 'Cmds',
+              icon: Icons.terminal_rounded,
+              active: settings.allowCommands,
+              onTap: () => ref
+                  .read(codeProvider.notifier)
+                  .setCodeSettings(settings.copyWith(
+                      allowCommands: !settings.allowCommands)),
+            ),
+            const Spacer(),
+            // New chat
+            _SmallIconBtn(
+              icon: Icons.add_rounded,
+              tooltip: 'New session',
+              onTap: () =>
+                  ref.read(codeProvider.notifier).newChat(),
+            ),
+            const SizedBox(width: 4),
+            // Settings
+            _SmallIconBtn(
+              icon: Icons.tune_rounded,
+              tooltip: 'Settings',
+              onTap: () => ModelSettingsSheet.show(context,
+                  provider: codeProvider),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _PermChip extends StatelessWidget {
+  const _PermChip({
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: active
+                ? AppTheme.blue500.withValues(alpha: 0.18)
+                : AppTheme.surface2,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: active
+                  ? AppTheme.blue500.withValues(alpha: 0.4)
+                  : AppTheme.blue500.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon,
+                size: 10,
+                color: active ? AppTheme.blue400 : AppTheme.textMid),
+            const SizedBox(width: 3),
+            Text(label,
+                style: GoogleFonts.sora(
+                    fontSize: 9,
+                    color: active
+                        ? AppTheme.blue300
+                        : AppTheme.textMid,
+                    fontWeight: active
+                        ? FontWeight.w600
+                        : FontWeight.w400)),
+          ]),
+        ),
+      );
+}
+
+class _SmallIconBtn extends StatefulWidget {
+  const _SmallIconBtn(
+      {required this.icon, required this.tooltip, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  State<_SmallIconBtn> createState() => _SmallIconBtnState();
+}
+
+class _SmallIconBtnState extends State<_SmallIconBtn> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: widget.tooltip,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit:  (_) => setState(() => _hovered = false),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: _hovered
+                    ? AppTheme.blue500.withValues(alpha: 0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(widget.icon,
+                  size: 16, color: AppTheme.textMid),
+            ),
+          ),
+        ),
+      );
 }
 
 // ── Desktop 2-panel layout ────────────────────────────────────────────────
@@ -125,20 +350,14 @@ class _DesktopLayout extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Left: conversation ────────────────────────────────────────
           SizedBox(
-            width: 380,
+            width: 360,
             child: _ConversationPanel(
-              state: state,
-              scrollCtrl: scrollCtrl,
-            ),
+                state: state, scrollCtrl: scrollCtrl),
           ),
-          // Divider
           Container(
-            width: 1,
-            color: AppTheme.blue500.withValues(alpha: 0.12),
-          ),
-          // ── Right: code output ────────────────────────────────────────
+              width: 1,
+              color: AppTheme.blue500.withValues(alpha: 0.1)),
           Expanded(
             child: _CodeOutputPanel(
               snippets: snippets,
@@ -151,7 +370,7 @@ class _DesktopLayout extends StatelessWidget {
       );
 }
 
-// ── Mobile: stacked tabs ──────────────────────────────────────────────────
+// ── Mobile layout ─────────────────────────────────────────────────────────
 
 class _MobileLayout extends StatefulWidget {
   const _MobileLayout({
@@ -162,45 +381,56 @@ class _MobileLayout extends StatefulWidget {
   final ChatState state;
   final ScrollController scrollCtrl;
   final List<_CodeSnippet> snippets;
+
   @override
   State<_MobileLayout> createState() => _MobileLayoutState();
 }
 
 class _MobileLayoutState extends State<_MobileLayout> {
   bool _showCode = false;
+
   @override
   Widget build(BuildContext context) => Column(children: [
-        // Tab row
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          color: AppTheme.bg.withValues(alpha: 0.6),
-          child: Row(children: [
-            _Tab(
-                label: 'Chat',
-                icon: Icons.chat_bubble_outline_rounded,
-                selected: !_showCode,
-                onTap: () => setState(() => _showCode = false)),
-            const SizedBox(width: 8),
-            _Tab(
-                label: 'Code',
-                icon: Icons.code_rounded,
-                selected: _showCode,
-                onTap: () => setState(() => _showCode = true)),
-          ]),
+        _TabRow(
+          showCode: _showCode,
+          onToggle: (v) => setState(() => _showCode = v),
         ),
-        Container(height: 1, color: AppTheme.blue500.withValues(alpha: 0.08)),
         Expanded(
           child: _showCode
               ? _CodeOutputPanel(
                   snippets: widget.snippets,
-                  isLoading: widget.state.isLoading,
-                )
+                  isLoading: widget.state.isLoading)
               : _ConversationPanel(
                   state: widget.state,
-                  scrollCtrl: widget.scrollCtrl,
-                ),
+                  scrollCtrl: widget.scrollCtrl),
         ),
       ]);
+}
+
+class _TabRow extends StatelessWidget {
+  const _TabRow({required this.showCode, required this.onToggle});
+  final bool showCode;
+  final void Function(bool) onToggle;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        color: AppTheme.bg.withValues(alpha: 0.6),
+        child: Row(children: [
+          _Tab(
+              label: 'Chat',
+              icon: Icons.chat_bubble_outline_rounded,
+              selected: !showCode,
+              onTap: () => onToggle(false)),
+          const SizedBox(width: 8),
+          _Tab(
+              label: 'Code',
+              icon: Icons.code_rounded,
+              selected: showCode,
+              onTap: () => onToggle(true)),
+        ]),
+      );
 }
 
 class _Tab extends StatelessWidget {
@@ -213,17 +443,19 @@ class _Tab extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          duration: const Duration(milliseconds: 130),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 11, vertical: 5),
           decoration: BoxDecoration(
             color: selected
                 ? AppTheme.blue500.withValues(alpha: 0.18)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(7),
             border: Border.all(
               color: selected
                   ? AppTheme.blue500.withValues(alpha: 0.4)
@@ -232,22 +464,26 @@ class _Tab extends StatelessWidget {
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon,
-                size: 14,
-                color: selected ? AppTheme.blue400 : AppTheme.textMid),
+                size: 13,
+                color: selected
+                    ? AppTheme.blue400
+                    : AppTheme.textMid),
             const SizedBox(width: 5),
             Text(label,
                 style: GoogleFonts.sora(
                     fontSize: 12,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w400,
-                    color:
-                        selected ? AppTheme.blue300 : AppTheme.textMid)),
+                    fontWeight: selected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: selected
+                        ? AppTheme.blue300
+                        : AppTheme.textMid)),
           ]),
         ),
       );
 }
 
-// ── Conversation panel ────────────────────────────────────────────────────
+// ── Conversation panel (compact messages) ────────────────────────────────
 
 class _ConversationPanel extends StatelessWidget {
   const _ConversationPanel(
@@ -257,15 +493,97 @@ class _ConversationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (state.messages.isEmpty) {
-      return const _CodeEmptyState();
-    }
+    if (state.messages.isEmpty) return const _CodeEmptyState();
     return ListView.builder(
       controller: scrollCtrl,
-      padding: const EdgeInsets.only(top: 12, bottom: 12),
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
       itemCount: state.messages.length,
       itemBuilder: (_, i) =>
           _CompactMessage(message: state.messages[i]),
+    );
+  }
+}
+
+class _CompactMessage extends StatelessWidget {
+  const _CompactMessage({required this.message});
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.role == 'tool') return const SizedBox.shrink();
+    if (message.role == 'user') {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 3),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 7),
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.65),
+          decoration: BoxDecoration(
+            color: AppTheme.blue700.withValues(alpha: 0.8),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
+              bottomLeft: Radius.circular(12),
+              bottomRight: Radius.circular(3),
+            ),
+            border: Border.all(
+                color: AppTheme.blue500.withValues(alpha: 0.3)),
+          ),
+          child: Text(message.content,
+              style: GoogleFonts.sora(
+                  fontSize: 13,
+                  color: AppTheme.textHigh,
+                  height: 1.5)),
+        ),
+      );
+    }
+    // Assistant
+    return Container(
+      margin:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(3),
+          topRight: Radius.circular(12),
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppTheme.blue500.withValues(alpha: 0.06),
+              border: Border.all(
+                  color: AppTheme.blue500.withValues(alpha: 0.1)),
+            ),
+            child: message.isStreaming && message.content.isEmpty
+                ? const _TypingIndicator()
+                : MarkdownBody(
+                    data: message.content,
+                    selectable: true,
+                    styleSheet: MarkdownStyleSheet(
+                      p: GoogleFonts.sora(
+                          fontSize: 13,
+                          color: AppTheme.textHigh,
+                          height: 1.6),
+                      code: GoogleFonts.dmMono(
+                          fontSize: 12,
+                          color: AppTheme.blue300),
+                      codeblockDecoration: BoxDecoration(
+                        color: const Color(0xFF0D1117),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      codeblockPadding: const EdgeInsets.all(10),
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -289,44 +607,41 @@ class _CodeOutputPanel extends StatelessWidget {
     if (snippets.isEmpty) {
       return _NoCodePlaceholder(isLoading: isLoading);
     }
-
     final displayIndex = focusedIndex ?? snippets.length - 1;
-    final snippet =
-        displayIndex < snippets.length ? snippets[displayIndex] : snippets.last;
+    final snippet = displayIndex < snippets.length
+        ? snippets[displayIndex]
+        : snippets.last;
 
     return Column(children: [
-      // Snippet tabs (if multiple)
       if (snippets.length > 1)
         _SnippetTabs(
           snippets: snippets,
           selectedIndex: displayIndex,
           onSelect: onFocus ?? (_) {},
         ),
-      // Code view
-      Expanded(
-        child: _SnippetView(snippet: snippet),
-      ),
+      Expanded(child: _SnippetView(snippet: snippet)),
     ]);
   }
 }
 
 class _SnippetTabs extends StatelessWidget {
-  const _SnippetTabs(
-      {required this.snippets,
-      required this.selectedIndex,
-      required this.onSelect});
+  const _SnippetTabs({
+    required this.snippets,
+    required this.selectedIndex,
+    required this.onSelect,
+  });
   final List<_CodeSnippet> snippets;
   final int selectedIndex;
   final void Function(int) onSelect;
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 36,
+        height: 34,
         decoration: BoxDecoration(
           color: AppTheme.surface1.withValues(alpha: 0.8),
           border: Border(
-            bottom: BorderSide(color: AppTheme.blue500.withValues(alpha: 0.1)),
-          ),
+              bottom: BorderSide(
+                  color: AppTheme.blue500.withValues(alpha: 0.1))),
         ),
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
@@ -339,23 +654,26 @@ class _SnippetTabs extends StatelessWidget {
               child: Container(
                 alignment: Alignment.center,
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                    const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: sel ? AppTheme.blue400 : Colors.transparent,
+                      color: sel
+                          ? AppTheme.blue400
+                          : Colors.transparent,
                       width: 2,
                     ),
                   ),
                 ),
-                child: Text(
-                  snippets[i].language,
-                  style: GoogleFonts.dmMono(
-                    fontSize: 11,
-                    color: sel ? AppTheme.blue300 : AppTheme.textMid,
-                    fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                ),
+                child: Text(snippets[i].language,
+                    style: GoogleFonts.dmMono(
+                        fontSize: 11,
+                        color: sel
+                            ? AppTheme.blue300
+                            : AppTheme.textMid,
+                        fontWeight: sel
+                            ? FontWeight.w600
+                            : FontWeight.w400)),
               ),
             );
           },
@@ -369,20 +687,20 @@ class _SnippetView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-        // Header bar
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppTheme.surface2.withValues(alpha: 0.5),
             border: Border(
-              bottom:
-                  BorderSide(color: AppTheme.blue500.withValues(alpha: 0.1)),
-            ),
+                bottom: BorderSide(
+                    color:
+                        AppTheme.blue500.withValues(alpha: 0.1))),
           ),
           child: Row(children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: AppTheme.blue500.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(5),
@@ -399,16 +717,15 @@ class _SnippetView extends StatelessWidget {
             _CopyCodeBtn(code: snippet.code),
           ]),
         ),
-        // Code content
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.zero,
             child: HighlightView(
               snippet.code,
               language: snippet.language,
               theme: atomOneDarkTheme,
               padding: const EdgeInsets.all(20),
-              textStyle: GoogleFonts.dmMono(fontSize: 13, height: 1.6),
+              textStyle:
+                  GoogleFonts.dmMono(fontSize: 13, height: 1.6),
             ),
           ),
         ),
@@ -423,203 +740,38 @@ class _NoCodePlaceholder extends StatelessWidget {
   Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: AppTheme.surface2,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: AppTheme.blue500.withValues(alpha: 0.2)),
             ),
             child: Icon(
-              isLoading ? Icons.hourglass_top_rounded : Icons.code_off_rounded,
-              size: 28,
+              isLoading
+                  ? Icons.hourglass_top_rounded
+                  : Icons.code_off_rounded,
+              size: 26,
               color: AppTheme.textMid,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Text(
             isLoading ? 'Generating…' : 'No code yet',
             style: GoogleFonts.sora(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textMid),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
-            'Ask Claude to write or explain code.\nCode blocks will appear here.',
+            'Code blocks from the AI\nwill appear here.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.sora(fontSize: 13, color: AppTheme.textLow),
+            style: GoogleFonts.sora(
+                fontSize: 12, color: AppTheme.textLow),
           ),
         ]),
-      );
-}
-
-// ── Compact message (left panel) ──────────────────────────────────────────
-
-class _CompactMessage extends StatelessWidget {
-  const _CompactMessage({required this.message});
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final isUser = message.role == 'user';
-    if (isUser) return _CompactUserMsg(content: message.content);
-    if (message.role == 'tool') return const SizedBox.shrink();
-    return _CompactAssistantMsg(message: message);
-  }
-}
-
-class _CompactUserMsg extends StatelessWidget {
-  const _CompactUserMsg({required this.content});
-  final String content;
-
-  @override
-  Widget build(BuildContext context) => Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.7),
-          decoration: BoxDecoration(
-            color: AppTheme.blue700.withValues(alpha: 0.8),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(14),
-              topRight: Radius.circular(14),
-              bottomLeft: Radius.circular(14),
-              bottomRight: Radius.circular(4),
-            ),
-            border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.3)),
-          ),
-          child: Text(content,
-              style: GoogleFonts.sora(
-                  fontSize: 13,
-                  color: AppTheme.textHigh,
-                  height: 1.5)),
-        ),
-      );
-}
-
-class _CompactAssistantMsg extends StatelessWidget {
-  const _CompactAssistantMsg({required this.message});
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4),
-            topRight: Radius.circular(14),
-            bottomLeft: Radius.circular(14),
-            bottomRight: Radius.circular(14),
-          ),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.blue500.withValues(alpha: 0.06),
-                border: Border.all(
-                    color: AppTheme.blue500.withValues(alpha: 0.1)),
-              ),
-              child: message.isStreaming && message.content.isEmpty
-                  ? _MiniTypingIndicator()
-                  : MarkdownBody(
-                      data: message.content,
-                      selectable: true,
-                      styleSheet: MarkdownStyleSheet(
-                        p: GoogleFonts.sora(
-                            fontSize: 13,
-                            color: AppTheme.textHigh,
-                            height: 1.6),
-                        code: GoogleFonts.dmMono(
-                            fontSize: 12, color: AppTheme.blue300),
-                        h1: GoogleFonts.sora(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textHigh),
-                        h2: GoogleFonts.sora(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textHigh),
-                        h3: GoogleFonts.sora(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textHigh),
-                        listBullet: GoogleFonts.sora(
-                            fontSize: 13, color: AppTheme.blue400),
-                        codeblockDecoration: BoxDecoration(
-                          color: const Color(0xFF0D1117),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        codeblockPadding: const EdgeInsets.all(12),
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      );
-}
-
-class _MiniTypingIndicator extends StatefulWidget {
-  @override
-  State<_MiniTypingIndicator> createState() => _MiniTypingIndicatorState();
-}
-
-class _MiniTypingIndicatorState extends State<_MiniTypingIndicator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1100))
-      ..repeat();
-  }
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 18,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(
-            3,
-            (i) => AnimatedBuilder(
-              animation: _ctrl,
-              builder: (_, __) {
-                final t = ((_ctrl.value - i * 0.2) % 1.0).clamp(0.0, 1.0);
-                final dy = t < 0.4 ? -4 * (t / 0.4)
-                    : t < 0.7 ? -4 * (1 - (t - 0.4) / 0.3)
-                    : 0.0;
-                final op = 0.3 + 0.7 *
-                    (t < 0.5 ? t / 0.5 : (1 - t) / 0.5).clamp(0.0, 1.0);
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Transform.translate(
-                    offset: Offset(0, dy),
-                    child: Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: AppTheme.blue400.withValues(alpha: op),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
       );
 }
 
@@ -628,187 +780,59 @@ class _MiniTypingIndicatorState extends State<_MiniTypingIndicator>
 class _CopyCodeBtn extends StatefulWidget {
   const _CopyCodeBtn({required this.code});
   final String code;
+
   @override
   State<_CopyCodeBtn> createState() => _CopyCodeBtnState();
 }
+
 class _CopyCodeBtnState extends State<_CopyCodeBtn> {
   bool _copied = false;
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: () async {
-      await Clipboard.setData(ClipboardData(text: widget.code));
-      setState(() => _copied = true);
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) setState(() => _copied = false);
-    },
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: _copied
-            ? AppTheme.blue500.withValues(alpha: 0.2)
-            : AppTheme.surface2,
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(
-          color: _copied
-              ? AppTheme.blue500.withValues(alpha: 0.4)
-              : AppTheme.blue500.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(
-          _copied ? Icons.check_rounded : Icons.copy_rounded,
-          size: 13,
-          color: _copied ? AppTheme.blue400 : AppTheme.textMid,
-        ),
-        const SizedBox(width: 5),
-        Text(
-          _copied ? 'Copied!' : 'Copy',
-          style: GoogleFonts.sora(
-            fontSize: 11,
-            color: _copied ? AppTheme.blue400 : AppTheme.textMid,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ]),
-    ),
-  );
-}
-
-// ── Top bar ───────────────────────────────────────────────────────────────
-
-class _CodeTopBar extends ConsumerWidget {
-  const _CodeTopBar({required this.state});
-  final ChatState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            height: 54,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-                color: AppTheme.bg.withValues(alpha: 0.7)),
-            child: Row(children: [
-              // Code mode badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.blue500.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: AppTheme.blue500.withValues(alpha: 0.35)),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.code_rounded,
-                      size: 14, color: AppTheme.blue400),
-                  const SizedBox(width: 6),
-                  Text('Code Mode',
-                      style: GoogleFonts.sora(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.blue300)),
-                ]),
-              ),
-              const SizedBox(width: 10),
-              // Model selector
-              Expanded(
-                child: ModelSelector(
-                  selectedModel: state.selectedModel,
-                  models: state.models,
-                  onSelected: (m) =>
-                      ref.read(chatProvider.notifier).selectModel(m),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Switch to Chat
-              _TopBarChip(
-                label: 'Chat',
-                icon: Icons.chat_bubble_outline_rounded,
-                onTap: () =>
-                    ref.read(chatProvider.notifier).setMode('chat'),
-              ),
-              const SizedBox(width: 6),
-              // Settings
-              _SettingsBtn(
-                badge: state.systemPrompt != null &&
-                    state.systemPrompt!.isNotEmpty,
-                onTap: () => ModelSettingsSheet.show(context),
-              ),
-            ]),
-          ),
-        ),
-      );
-}
-
-class _TopBarChip extends StatelessWidget {
-  const _TopBarChip(
-      {required this.label, required this.icon, required this.onTap});
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: widget.code));
+          setState(() => _copied = true);
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) setState(() => _copied = false);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: AppTheme.surface2,
-            borderRadius: BorderRadius.circular(8),
+            color: _copied
+                ? AppTheme.blue500.withValues(alpha: 0.2)
+                : AppTheme.surface2,
+            borderRadius: BorderRadius.circular(7),
             border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.15)),
+              color: _copied
+                  ? AppTheme.blue500.withValues(alpha: 0.4)
+                  : AppTheme.blue500.withValues(alpha: 0.12),
+            ),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 13, color: AppTheme.textMid),
+            Icon(
+              _copied ? Icons.check_rounded : Icons.copy_rounded,
+              size: 12,
+              color: _copied ? AppTheme.blue400 : AppTheme.textMid,
+            ),
             const SizedBox(width: 5),
-            Text(label,
-                style: GoogleFonts.sora(
-                    fontSize: 12,
-                    color: AppTheme.textMid,
-                    fontWeight: FontWeight.w400)),
+            Text(
+              _copied ? 'Copied!' : 'Copy',
+              style: GoogleFonts.sora(
+                  fontSize: 11,
+                  color: _copied
+                      ? AppTheme.blue400
+                      : AppTheme.textMid,
+                  fontWeight: FontWeight.w500),
+            ),
           ]),
         ),
       );
 }
 
-class _SettingsBtn extends StatelessWidget {
-  const _SettingsBtn({required this.badge, required this.onTap});
-  final bool badge;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Stack(alignment: Alignment.center, children: [
-            Icon(Icons.tune_rounded, size: 18, color: AppTheme.textMid),
-            if (badge)
-              Positioned(
-                right: 5, top: 5,
-                child: Container(
-                  width: 7, height: 7,
-                  decoration: BoxDecoration(
-                    color: AppTheme.blue400,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-          ]),
-        ),
-      );
-}
-
-// ── Glass input area (code-specific, pre-fills with coding system prompt) ─
+// ── Glass code input ──────────────────────────────────────────────────────
 
 class _GlassCodeInput extends StatelessWidget {
   const _GlassCodeInput({required this.onSend});
@@ -822,11 +846,13 @@ class _GlassCodeInput extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.bg.withValues(alpha: 0.75),
               border: Border(
-                top: BorderSide(
-                    color: AppTheme.blue500.withValues(alpha: 0.1)),
-              ),
+                  top: BorderSide(
+                      color: AppTheme.blue500.withValues(alpha: 0.1))),
             ),
-            child: ChatInput(onSend: onSend),
+            child: ChatInput(
+              onSend: onSend,
+              provider: codeProvider,
+            ),
           ),
         ),
       );
@@ -834,31 +860,8 @@ class _GlassCodeInput extends StatelessWidget {
 
 // ── Empty state ───────────────────────────────────────────────────────────
 
-class _CodeEmptyState extends StatefulWidget {
+class _CodeEmptyState extends ConsumerWidget {
   const _CodeEmptyState();
-  @override
-  State<_CodeEmptyState> createState() => _CodeEmptyStateState();
-}
-
-class _CodeEmptyStateState extends State<_CodeEmptyState>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _pulse;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 3))
-      ..repeat(reverse: true);
-    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   static const _suggestions = [
     'Write a REST API endpoint',
@@ -868,85 +871,63 @@ class _CodeEmptyStateState extends State<_CodeEmptyState>
   ];
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context, WidgetRef ref) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            AnimatedBuilder(
-              animation: _pulse,
-              builder: (_, child) => Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.blue500
-                          .withValues(alpha: 0.08 + 0.12 * _pulse.value),
-                      blurRadius: 28 + 20 * _pulse.value,
-                    )
-                  ],
-                ),
-                child: child,
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppTheme.blue900,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: AppTheme.blue500.withValues(alpha: 0.3)),
               ),
-              child: Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  color: AppTheme.blue900,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: AppTheme.blue500.withValues(alpha: 0.3)),
-                ),
-                child: const Icon(Icons.terminal_rounded,
-                    size: 32, color: AppTheme.blue400),
-              ),
+              child: const Icon(Icons.terminal_rounded,
+                  size: 30, color: AppTheme.blue400),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text('Code assistant',
                 style: GoogleFonts.sora(
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textHigh,
                     letterSpacing: -0.3)),
             const SizedBox(height: 6),
             Text('Ask Claude to write, review, or explain code.',
-                style:
-                    GoogleFonts.sora(fontSize: 13, color: AppTheme.textMid)),
-            const SizedBox(height: 22),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.sora(
+                    fontSize: 13, color: AppTheme.textMid)),
+            const SizedBox(height: 20),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: _suggestions
-                  .map((s) => _SuggestionChip(label: s))
+                  .map((s) => GestureDetector(
+                        onTap: () => ref
+                            .read(codeProvider.notifier)
+                            .sendMessage(s),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface2,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: AppTheme.blue500
+                                    .withValues(alpha: 0.15)),
+                          ),
+                          child: Text(s,
+                              style: GoogleFonts.sora(
+                                  fontSize: 12,
+                                  color: AppTheme.textMid)),
+                        ),
+                      ))
                   .toList(),
             ),
           ]),
-        ),
-      );
-}
-
-class _SuggestionChip extends ConsumerWidget {
-  const _SuggestionChip({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) => GestureDetector(
-        onTap: () =>
-            ref.read(chatProvider.notifier).sendMessage(label),
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: AppTheme.surface2,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.15)),
-          ),
-          child: Text(label,
-              style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: AppTheme.textMid,
-                  fontWeight: FontWeight.w400)),
         ),
       );
 }
