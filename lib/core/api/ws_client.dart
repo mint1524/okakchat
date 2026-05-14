@@ -37,6 +37,7 @@ class WsClient {
     double? temperature,
     String? systemPrompt,
     int? maxTokens,
+    List<Map<String, String>>? files,
   }) {
     // Cancel any running stream first
     cancel();
@@ -51,6 +52,7 @@ class WsClient {
       temperature: temperature,
       systemPrompt: systemPrompt,
       maxTokens: maxTokens,
+      files: files,
     );
 
     return _controller!.stream;
@@ -64,6 +66,7 @@ class WsClient {
     double? temperature,
     String? systemPrompt,
     int? maxTokens,
+    List<Map<String, String>>? files,
   }) async {
     final ctrl = _controller!;
     try {
@@ -95,6 +98,7 @@ class WsClient {
         if (systemPrompt != null && systemPrompt.isNotEmpty)
           'systemPrompt': systemPrompt,
         if (maxTokens != null) 'maxTokens': maxTokens,
+        if (files != null && files.isNotEmpty) 'files': files,
         if (kIsWeb) '_token': token,
       });
       _channel!.sink.add(payload);

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/api/chat_api.dart';
 import 'package:okakchat/core/api/ws_client.dart';
@@ -237,6 +239,38 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final assistantMsg =
         ChatMessage(role: 'assistant', content: '', isStreaming: true);
 
+    final filesToSend = state.attachedFiles.map((path) {
+      if (kIsWeb) return <String, String>{'name': path, 'content': ''};
+      try {
+        final file = File(path);
+        final bytes = file.readAsBytesSync();
+        final name = path.split('/').last;
+        if (bytes.length > 50 * 1024 * 1024) {
+          return <String, String>{
+            'name': name,
+            'content': '[File too large: ${name}]',
+          };
+        }
+        final ext = name.contains('.') ? name.split('.').last : '';
+        if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']
+            .contains(ext.toLowerCase())) {
+          return <String, String>{
+            'name': name,
+            'content': '[Image attachment: $name]',
+          };
+        }
+        return <String, String>{
+          'name': name,
+          'content': file.readAsStringSync(),
+        };
+      } catch (_) {
+        return <String, String>{
+          'name': path.split('/').last,
+          'content': '[Error reading file]',
+        };
+      }
+    }).toList();
+
     state = state.copyWith(
       messages: [...state.messages, userMsg, assistantMsg],
       isLoading: true,
@@ -271,6 +305,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
           temperature: state.temperature,
           systemPrompt: state.systemPrompt,
           maxTokens: state.maxTokens,
+          files: filesToSend.isNotEmpty ? filesToSend : null,
         );
 
     final buffer = StringBuffer();
