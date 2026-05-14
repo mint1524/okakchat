@@ -122,7 +122,7 @@ class _ModelSettingsSheetState extends ConsumerState<ModelSettingsSheet> {
   String _activePresetId(ChatState s) {
     for (final p in _presets) {
       if ((p.temperature - s.temperature).abs() < 0.01 &&
-          p.maxTokens == s.maxTokens) return p.id;
+          p.maxTokens == s.maxTokens) { return p.id; }
     }
     return '';
   }

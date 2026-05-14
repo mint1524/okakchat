@@ -110,7 +110,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                       await FilePicker.platform.getDirectoryPath();
                   if (result != null) {
                     setState(() => _workspacePath = result);
-                    ref.read(chatProvider.notifier).setMode('agent');
+                    // agent mode is already embedded in this screen
                   }
                 },
               ),
@@ -153,10 +153,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
       const VerticalDivider(width: 1),
       Expanded(
         child: Stack(children: [
-          ChatScreen(
-            agentMode: true,
-            workspacePath: _workspacePath,
-          ),
+          ChatScreen(),
           if (_processing)
             const Positioned(
               top: 0,

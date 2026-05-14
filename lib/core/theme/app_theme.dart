@@ -1,22 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Font helper — centralised so it's easy to swap
-TextStyle _font({
-  double? fontSize,
-  FontWeight? fontWeight,
-  Color? color,
-  double? letterSpacing,
-  double? height,
-}) =>
-    GoogleFonts.sora(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      letterSpacing: letterSpacing,
-      height: height,
-    );
-
 /// OKAK Chat — High-tech minimalist design system.
 ///
 /// Dark-first. Electric blue (#3B82F6) on deep navy-black (#060B17).

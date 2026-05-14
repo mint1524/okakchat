@@ -31,6 +31,14 @@ const _skills = [
   _Skill('/plan', 'Plan implementation', 'Create a step-by-step implementation plan for:\n\n'),
   _Skill('/optimize', 'Optimize performance', 'Optimize the following for performance:\n\n'),
   _Skill('/security', 'Security review', 'Review the following for security vulnerabilities:\n\n'),
+  _Skill('/arch', 'Architecture design', 'Design the architecture for:\n\n'),
+  _Skill('/api', 'Design an API', 'Design a REST/GraphQL API for:\n\n'),
+  _Skill('/db', 'Database schema', 'Design a database schema for:\n\n'),
+  _Skill('/deploy', 'Deployment config', 'Create deployment configuration for:\n\n'),
+  _Skill('/ci', 'CI/CD pipeline', 'Create a CI/CD pipeline configuration for:\n\n'),
+  _Skill('/fix', 'Fix this error', 'Fix the following error:\n\n'),
+  _Skill('/pr', 'Write PR description', 'Write a clear pull request description for:\n\n'),
+  _Skill('/commit', 'Write commit message', 'Write a descriptive commit message for:\n\n'),
 ];
 
 // ── Main input widget ─────────────────────────────────────────────────────
@@ -75,7 +83,7 @@ class _ChatInputState extends ConsumerState<ChatInput>
     final has = _ctrl.text.trim().isNotEmpty;
     if (has != _hasText) {
       setState(() => _hasText = has);
-      if (has) _sendCtrl.forward(); else _sendCtrl.reverse();
+      if (has) { _sendCtrl.forward(); } else { _sendCtrl.reverse(); }
     }
     // Slash skill suggestions
     final text = _ctrl.text;
@@ -161,10 +169,7 @@ class _ChatInputState extends ConsumerState<ChatInput>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Attach file button
-                _AttachBtn(onTap: _pickFile),
-                const SizedBox(width: 8),
-                // Text field
+                // Text field with embedded attach button
                 Expanded(
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 160),
@@ -178,61 +183,69 @@ class _ChatInputState extends ConsumerState<ChatInput>
                         width: _focusNode.hasFocus ? 1.5 : 1,
                       ),
                     ),
-                    child: Focus(
-                      onFocusChange: (_) => setState(() {}),
-                      onKeyEvent: (_, event) {
-                        if (event is KeyDownEvent &&
-                            event.logicalKey ==
-                                LogicalKeyboardKey.enter &&
-                            !HardwareKeyboard.instance.isMetaPressed &&
-                            !HardwareKeyboard.instance.isControlPressed &&
-                            !HardwareKeyboard.instance.isShiftPressed) {
-                          _submit();
-                          return KeyEventResult.handled;
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      child: TextField(
-                        controller: _ctrl,
-                        focusNode: _focusNode,
-                        maxLines: null,
-                        style: GoogleFonts.sora(
-                            fontSize: 14,
-                            color: AppTheme.textHigh,
-                            height: 1.5),
-                        cursorColor: AppTheme.blue400,
-                        decoration: InputDecoration(
-                          hintText: 'Message… (/ for skills)',
-                          hintStyle: GoogleFonts.sora(
-                              fontSize: 14,
-                              color: AppTheme.textLow),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 11),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _AttachBtn(onTap: _pickFile),
+                        Expanded(
+                          child: Focus(
+                          onFocusChange: (_) => setState(() {}),
+                          onKeyEvent: (_, event) {
+                            if (event is KeyDownEvent &&
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.enter &&
+                                !HardwareKeyboard.instance.isMetaPressed &&
+                                !HardwareKeyboard.instance.isControlPressed &&
+                                !HardwareKeyboard.instance.isShiftPressed) {
+                              _submit();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextField(
+                            controller: _ctrl,
+                            focusNode: _focusNode,
+                            maxLines: null,
+                            style: GoogleFonts.sora(
+                                fontSize: 14,
+                                color: AppTheme.textHigh,
+                                height: 1.5),
+                            cursorColor: AppTheme.blue400,
+                            decoration: InputDecoration(
+                              hintText: 'Message… (/ for skills)',
+                              hintStyle: GoogleFonts.sora(
+                                  fontSize: 14,
+                                  color: AppTheme.textLow),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 11),
+                            ),
+                          ),
+                        ),),
+                        const SizedBox(width: 4),
+                        // Send / Stop
+                        SizedBox(
+                          width: 38,
+                          height: 38,
+                          child: isLoading
+                              ? _StopButton(
+                                  onTap: () {
+                                    ref.read(widget.provider.notifier).cancel();
+                                    ref.read(wsClientProvider).cancel();
+                                  },
+                                )
+                              : ScaleTransition(
+                                  scale: _sendScale,
+                                  child: _SendButton(
+                                    active: _hasText,
+                                    onTap: _hasText ? _submit : null,
+                                  ),
+                                ),
                         ),
-                      ),
+                        const SizedBox(width: 4),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Send / Stop
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: isLoading
-                      ? _StopButton(
-                          onTap: () {
-                            ref.read(widget.provider.notifier).cancel();
-                            ref.read(wsClientProvider).cancel();
-                          },
-                        )
-                      : ScaleTransition(
-                          scale: _sendScale,
-                          child: _SendButton(
-                            active: _hasText,
-                            onTap: _hasText ? _submit : null,
-                          ),
-                        ),
                 ),
               ],
             ),
@@ -258,7 +271,7 @@ class _BottomBar extends ConsumerWidget {
     final notifier = ref.read(provider.notifier);
     final fill = state.contextFillFraction;
     final used = state.estimatedTokensUsed;
-    final max = state.maxTokens;
+    final limit = state.contextLimit;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
@@ -271,35 +284,24 @@ class _BottomBar extends ConsumerWidget {
             onSelected: notifier.selectModel,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         // Context window indicator
         GestureDetector(
-          onTap: () => _showContextInfo(context, used, max, fill),
-          child: _ContextChip(fill: fill, used: used, max: max),
+          onTap: () => _showContextInfo(context, used, limit, fill),
+          child: _ContextChip(fill: fill, used: used, max: limit),
         ),
         const SizedBox(width: 6),
         // Settings button
         GestureDetector(
           onTap: () => ModelSettingsSheet.show(context, provider: provider),
-          child: Container(
-            height: 28,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.surface2,
-              borderRadius: BorderRadius.circular(7),
-              border: Border.all(
-                  color: AppTheme.blue500.withValues(alpha: 0.15)),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.tune_rounded,
-                  size: 13, color: AppTheme.textMid),
-              const SizedBox(width: 4),
-              Text('Settings',
-                  style: GoogleFonts.sora(
-                      fontSize: 11, color: AppTheme.textMid)),
-            ]),
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.tune_rounded,
+                size: 11, color: AppTheme.textLow),
+            const SizedBox(width: 3),
+            Text('Settings',
+                style: GoogleFonts.sora(
+                    fontSize: 10, color: AppTheme.textLow)),
+          ]),
         ),
       ]),
     );
@@ -422,36 +424,26 @@ class _ContextChip extends StatelessWidget {
           : AppTheme.textMid;
 
   @override
-  Widget build(BuildContext context) => Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.surface2,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-              color: AppTheme.blue500.withValues(alpha: 0.15)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          SizedBox(
-            width: 28,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: fill,
-                backgroundColor: AppTheme.surface1,
-                valueColor: AlwaysStoppedAnimation(_color),
-                minHeight: 4,
-              ),
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+        SizedBox(
+          width: 28,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: fill,
+              backgroundColor: AppTheme.surface1,
+              valueColor: AlwaysStoppedAnimation(_color),
+              minHeight: 4,
             ),
           ),
-          const SizedBox(width: 5),
-          Text(
-            '${(fill * 100).round()}%',
-            style: GoogleFonts.sora(
-                fontSize: 11, color: _color),
-          ),
-        ]),
-      );
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '${(fill * 100).round()}%',
+          style: GoogleFonts.sora(
+              fontSize: 11, color: _color),
+        ),
+      ]);
 }
 
 class _ModelDropdown extends StatelessWidget {
@@ -506,35 +498,25 @@ class _ModelDropdown extends StatelessWidget {
           ]),
         );
       }).toList(),
-      child: Container(
-        height: 28,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.surface2,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-              color: AppTheme.blue500.withValues(alpha: 0.15)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.psychology_rounded,
-              size: 13, color: AppTheme.blue400),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              selected['displayName'] as String,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: AppTheme.textHigh,
-                  fontWeight: FontWeight.w500),
-            ),
+      // Frameless model selector: just text + chevron, no container
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.psychology_rounded,
+            size: 12, color: AppTheme.blue400),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            selected['displayName'] as String,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.sora(
+                fontSize: 11,
+                color: AppTheme.blue300,
+                fontWeight: FontWeight.w500),
           ),
-          const SizedBox(width: 4),
-          Icon(Icons.expand_more_rounded,
-              size: 13, color: AppTheme.textMid),
-        ]),
-      ),
+        ),
+        const SizedBox(width: 2),
+        Icon(Icons.expand_more_rounded,
+            size: 11, color: AppTheme.textLow),
+      ]),
     );
   }
 }
@@ -683,18 +665,16 @@ class _AttachBtnState extends State<_AttachBtn> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: _hovered
                   ? AppTheme.blue500.withValues(alpha: 0.1)
-                  : AppTheme.surface1,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: AppTheme.blue500.withValues(alpha: 0.15)),
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(Icons.attach_file_rounded,
-                size: 18, color: AppTheme.textMid),
+            child: Icon(Icons.attach_file_rounded,
+                size: 16, color: _hovered ? AppTheme.blue400 : AppTheme.textLow),
           ),
         ),
       );
@@ -726,25 +706,15 @@ class _SendButtonState extends State<_SendButton> {
           scale: _pressed ? 0.88 : 1.0,
           duration: const Duration(milliseconds: 100),
           child: Container(
-            width: 44,
-            height: 44,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: widget.active ? AppTheme.blue500 : AppTheme.surface3,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: widget.active
-                  ? [
-                      BoxShadow(
-                        color: AppTheme.blue500.withValues(alpha: 0.4),
-                        blurRadius: 14,
-                        spreadRadius: -2,
-                        offset: const Offset(0, 3),
-                      )
-                    ]
-                  : null,
+              color: widget.active ? AppTheme.blue500 : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               Icons.arrow_upward_rounded,
-              size: 20,
+              size: 18,
               color: widget.active ? Colors.white : AppTheme.textLow,
             ),
           ),
@@ -762,16 +732,14 @@ class _StopButton extends StatelessWidget {
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 44,
-          height: 44,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: AppTheme.surface2,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.25)),
+            color: AppTheme.blue500.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: const Icon(Icons.stop_rounded,
-              size: 20, color: AppTheme.textMid),
+              size: 16, color: AppTheme.blue400),
         ),
       );
 }

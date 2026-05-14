@@ -154,53 +154,49 @@ class _UserBubbleState extends ConsumerState<_UserBubble> {
                 child: Container(
                   margin: const EdgeInsets.symmetric(
                       vertical: 4, horizontal: 16),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 11),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppTheme.blue700, const Color(0xFF0A4B7A)],
-                    ),
+                  child: ClipRRect(
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(18),
                       topRight: Radius.circular(18),
                       bottomLeft: Radius.circular(18),
                       bottomRight: Radius.circular(5),
                     ),
-                    border: Border.all(
-                        color: AppTheme.blue500.withValues(alpha: 0.35)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.blue700.withValues(alpha: 0.45),
-                        blurRadius: 14,
-                        spreadRadius: -3,
-                        offset: const Offset(0, 4),
-                      )
-                    ],
-                  ),
-                  child: _editing
-                      ? _EditField(
-                          controller: _editCtrl,
-                          onSave: () {
-                            final text = _editCtrl.text.trim();
-                            if (text.isNotEmpty) {
-                              ref
-                                  .read(widget.provider.notifier)
-                                  .editAndRegenerate(
-                                      widget.message.id, text);
-                            }
-                            setState(() => _editing = false);
-                          },
-                          onCancel: () => setState(() => _editing = false),
-                        )
-                      : SelectableText(
-                          widget.message.content,
-                          style: GoogleFonts.sora(
-                              fontSize: 14,
-                              color: AppTheme.textHigh,
-                              height: 1.55),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 11),
+                        decoration: BoxDecoration(
+                          color: AppTheme.blue700.withValues(alpha: 0.35),
+                          border: Border.all(
+                              color: AppTheme.blue500.withValues(alpha: 0.25)),
                         ),
+                        child: _editing
+                            ? _EditField(
+                                controller: _editCtrl,
+                                onSave: () {
+                                  final text = _editCtrl.text.trim();
+                                  if (text.isNotEmpty) {
+                                    ref
+                                        .read(widget.provider.notifier)
+                                        .editAndRegenerate(
+                                            widget.message.id, text);
+                                  }
+                                  setState(() => _editing = false);
+                                },
+                                onCancel: () =>
+                                    setState(() => _editing = false),
+                              )
+                            : SelectableText(
+                                widget.message.content,
+                                style: GoogleFonts.sora(
+                                    fontSize: 14,
+                                    color: AppTheme.textHigh,
+                                    height: 1.55),
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               // Timestamp + action row
@@ -236,7 +232,7 @@ class _UserBubbleState extends ConsumerState<_UserBubble> {
           ),
         ),
       );
-}
+  }
 
 class _EditField extends StatelessWidget {
   const _EditField({
@@ -329,10 +325,49 @@ class _AssistantBubble extends ConsumerWidget {
                       ),
                       child: message.isStreaming && message.content.isEmpty
                           ? const TypingIndicator()
-                          : MarkdownBody(
-                              data: message.content,
-                              selectable: true,
-                              builders: {'code': _CodeBuilder()},
+                          : message.isStreaming
+                              ? MarkdownBody(
+                                  data: message.content,
+                                  selectable: true,
+                                  builders: {'code': _CodeBuilder()},
+                                  styleSheet: MarkdownStyleSheet(
+                                    p: GoogleFonts.sora(
+                                        fontSize: 14,
+                                        color: AppTheme.textHigh,
+                                        height: 1.65),
+                                    code: GoogleFonts.dmMono(
+                                        fontSize: 13,
+                                        color: AppTheme.blue300,
+                                        backgroundColor: AppTheme.surface2),
+                                    blockquote: GoogleFonts.sora(
+                                        fontSize: 14,
+                                        color: AppTheme.textMid,
+                                        fontStyle: FontStyle.italic),
+                                    h1: GoogleFonts.sora(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textHigh),
+                                    h2: GoogleFonts.sora(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textHigh),
+                                    h3: GoogleFonts.sora(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textHigh),
+                                    listBullet: GoogleFonts.sora(
+                                        fontSize: 14, color: AppTheme.blue400),
+                                    blockSpacing: 12,
+                                  ),
+                                )
+                              : AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 150),
+                                  child: MarkdownBody(
+                                key: ValueKey(
+                                    '${message.id}_${message.content.length}'),
+                                data: message.content,
+                                selectable: true,
+                                builders: {'code': _CodeBuilder()},
                               styleSheet: MarkdownStyleSheet(
                                 p: GoogleFonts.sora(
                                     fontSize: 14,
@@ -365,6 +400,7 @@ class _AssistantBubble extends ConsumerWidget {
                             ),
                     ),
                   ),
+                ),
                 ),
               ),
               // Timestamp + actions
@@ -438,7 +474,7 @@ class _ToolCallBubbleState extends State<_ToolCallBubble>
         child: GestureDetector(
           onTap: () {
             setState(() => _expanded = !_expanded);
-            if (_expanded) _ctrl.forward(); else _ctrl.reverse();
+            if (_expanded) { _ctrl.forward(); } else { _ctrl.reverse(); }
           },
           child: Container(
             decoration: BoxDecoration(
@@ -636,6 +672,9 @@ class _CodeBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(element, TextStyle? preferredStyle) {
     final code = element.textContent;
+    // Inline code (no newlines) → let MarkdownStyleSheet.code handle it
+    if (!code.contains('\n') && code.length < 80) return null;
+
     final language = element.attributes['class']
             ?.replaceFirst('language-', '') ??
         'plaintext';
