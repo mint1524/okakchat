@@ -49,3 +49,5 @@ app.*.map.json
 
 # OpenCode local config/state
 .opencode/
+opencode.json
+opencode.local.json
