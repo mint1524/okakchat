@@ -7,6 +7,7 @@ import 'package:okakchat/features/auth/register_screen.dart';
 import 'package:okakchat/features/auth/verify_screen.dart';
 import 'package:okakchat/features/shell/app_shell.dart';
 import 'package:okakchat/features/chat/chat_screen.dart';
+import 'package:okakchat/features/chat/code_screen.dart';
 import 'package:okakchat/features/history/history_screen.dart';
 import 'package:okakchat/features/settings/settings_screen.dart';
 import 'package:okakchat/features/admin/admin_shell.dart';
@@ -78,6 +79,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: '/chat/:id',
               pageBuilder: (_, state) => _noAnimPage(state,
                   ChatScreen(conversationId: state.pathParameters['id']))),
+          GoRoute(path: '/code',     pageBuilder: (_, state) => _noAnimPage(state, const CodeScreen())),
           GoRoute(path: '/history',  pageBuilder: (_, state) => _noAnimPage(state, const HistoryScreen())),
           GoRoute(path: '/settings', pageBuilder: (_, state) => _noAnimPage(state, const SettingsScreen())),
           GoRoute(path: '/admin',    pageBuilder: (_, state) => _noAnimPage(state, const AdminShell())),

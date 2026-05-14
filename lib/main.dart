@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:okakchat/core/l10n/strings.dart';
 import 'package:okakchat/core/router/router.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
@@ -45,6 +46,7 @@ class OkakChatApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.dark, // always dark for high-tech look
       routerConfig: router,
+      builder: (context, child) => ScopeProvider(child: child ?? const SizedBox.shrink()),
     );
   }
 }
