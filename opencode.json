@@ -2,6 +2,251 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "windsurf/claude-sonnet-4.6",
   "small_model": "windsurf/claude-sonnet-4.6",
+  "default_agent": "orchestrator",
+  "tool_output": {
+    "max_lines": 600,
+    "max_bytes": 30000
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 1,
+    "preserve_recent_tokens": 12000,
+    "reserved": 32000
+  },
+  "skills": {
+    "paths": [
+      ".opencode/skills",
+      "/Users/min7t/.claude/skills",
+      "/Users/min7t/.config/opencode/skills/gstack/.opencode/skills"
+    ]
+  },
+  "command": {
+    "office-hours": {
+      "description": "Run the gstack office-hours skill",
+      "agent": "orchestrator",
+      "template": "Use the `office-hours` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "plan-ceo-review": {
+      "description": "Run the gstack CEO plan review skill",
+      "agent": "orchestrator",
+      "template": "Use the `plan-ceo-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "plan-eng-review": {
+      "description": "Run the gstack engineering plan review skill",
+      "agent": "orchestrator",
+      "template": "Use the `plan-eng-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "plan-design-review": {
+      "description": "Run the gstack design plan review skill",
+      "agent": "orchestrator",
+      "template": "Use the `plan-design-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "design-consultation": {
+      "description": "Run the gstack design consultation skill",
+      "agent": "orchestrator",
+      "template": "Use the `design-consultation` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "design-shotgun": {
+      "description": "Run the gstack design shotgun skill",
+      "agent": "orchestrator",
+      "template": "Use the `design-shotgun` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "design-html": {
+      "description": "Run the gstack design HTML skill",
+      "agent": "orchestrator",
+      "template": "Use the `design-html` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "review": {
+      "description": "Run the gstack review skill",
+      "agent": "orchestrator",
+      "template": "Use the `review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "ship": {
+      "description": "Run the gstack ship skill",
+      "agent": "orchestrator",
+      "template": "Use the `ship` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "land-and-deploy": {
+      "description": "Run the gstack land-and-deploy skill",
+      "agent": "orchestrator",
+      "template": "Use the `land-and-deploy` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "canary": {
+      "description": "Run the gstack canary skill",
+      "agent": "orchestrator",
+      "template": "Use the `canary` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "benchmark": {
+      "description": "Run the gstack benchmark skill",
+      "agent": "orchestrator",
+      "template": "Use the `benchmark` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "browse": {
+      "description": "Run the gstack browse skill",
+      "agent": "orchestrator",
+      "template": "Use the `browse` gstack skill for web browsing. Never use `mcp__claude-in-chrome__*` tools.\n\nUser request: $ARGUMENTS"
+    },
+    "connect-chrome": {
+      "description": "Run the gstack connect-chrome skill",
+      "agent": "orchestrator",
+      "template": "Use the `connect-chrome` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "qa": {
+      "description": "Run the gstack QA skill",
+      "agent": "orchestrator",
+      "template": "Use the `qa` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "qa-only": {
+      "description": "Run the gstack QA-only skill",
+      "agent": "orchestrator",
+      "template": "Use the `qa-only` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "design-review": {
+      "description": "Run the gstack design review skill",
+      "agent": "orchestrator",
+      "template": "Use the `design-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "setup-browser-cookies": {
+      "description": "Run the gstack browser cookies setup skill",
+      "agent": "orchestrator",
+      "template": "Use the `setup-browser-cookies` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "setup-deploy": {
+      "description": "Run the gstack deploy setup skill",
+      "agent": "orchestrator",
+      "template": "Use the `setup-deploy` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "setup-gbrain": {
+      "description": "Run the gstack gbrain setup skill",
+      "agent": "orchestrator",
+      "template": "Use the `setup-gbrain` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "retro": {
+      "description": "Run the gstack retro skill",
+      "agent": "orchestrator",
+      "template": "Use the `retro` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "investigate": {
+      "description": "Run the gstack investigate skill",
+      "agent": "orchestrator",
+      "template": "Use the `investigate` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "document-release": {
+      "description": "Run the gstack document-release skill",
+      "agent": "orchestrator",
+      "template": "Use the `document-release` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "document-generate": {
+      "description": "Run the gstack document-generate skill",
+      "agent": "orchestrator",
+      "template": "Use the `document-generate` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "codex": {
+      "description": "Run the gstack codex skill",
+      "agent": "orchestrator",
+      "template": "Use the `codex` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "cso": {
+      "description": "Run the gstack CSO skill",
+      "agent": "orchestrator",
+      "template": "Use the `cso` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "autoplan": {
+      "description": "Run the gstack autoplan skill",
+      "agent": "orchestrator",
+      "template": "Use the `autoplan` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "plan-devex-review": {
+      "description": "Run the gstack developer experience plan review skill",
+      "agent": "orchestrator",
+      "template": "Use the `plan-devex-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "devex-review": {
+      "description": "Run the gstack developer experience review skill",
+      "agent": "orchestrator",
+      "template": "Use the `devex-review` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "careful": {
+      "description": "Run the gstack careful skill",
+      "agent": "orchestrator",
+      "template": "Use the `careful` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "freeze": {
+      "description": "Run the gstack freeze skill",
+      "agent": "orchestrator",
+      "template": "Use the `freeze` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "guard": {
+      "description": "Run the gstack guard skill",
+      "agent": "orchestrator",
+      "template": "Use the `guard` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "unfreeze": {
+      "description": "Run the gstack unfreeze skill",
+      "agent": "orchestrator",
+      "template": "Use the `unfreeze` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "gstack-upgrade": {
+      "description": "Run the gstack upgrade skill",
+      "agent": "orchestrator",
+      "template": "Use the `gstack-upgrade` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "learn": {
+      "description": "Run the gstack learn skill",
+      "agent": "orchestrator",
+      "template": "Use the `learn` gstack skill.\n\nUser request: $ARGUMENTS"
+    },
+    "sync-gbrain": {
+      "description": "Run the gstack sync-gbrain skill",
+      "agent": "orchestrator",
+      "template": "Use the `sync-gbrain` gstack skill.\n\nUser request: $ARGUMENTS"
+    }
+  },
+  "permission": {
+    "skill": "allow",
+    "task": "allow"
+  },
+  "agent": {
+    "build": {
+      "steps": 14,
+      "temperature": 0.1,
+      "permission": {
+        "task": "allow",
+        "skill": "allow"
+      }
+    },
+    "plan": {
+      "steps": 8,
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "task": "allow",
+        "skill": "allow"
+      }
+    },
+    "general": {
+      "disable": true
+    },
+    "scout": {
+      "disable": true
+    },
+    "title": {
+      "model": "windsurf/claude-sonnet-4.6",
+      "steps": 1,
+      "temperature": 0
+    },
+    "summary": {
+      "model": "windsurf/claude-sonnet-4.6",
+      "steps": 2,
+      "temperature": 0
+    },
+    "compaction": {
+      "model": "windsurf/claude-sonnet-4.6",
+      "steps": 2,
+      "temperature": 0
+    }
+  },
   "provider": {
     "windsurf": {
       "npm": "@ai-sdk/openai-compatible",

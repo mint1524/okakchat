@@ -1,84 +1,79 @@
-# OKAK Chat Recovery Checkpoint
+# CHECKPOINT — 15 May 2026
 
-Use this file as the only recovery context for the current Flutter task.
+**Build:** `dart analyze lib/` — No issues found
 
-## File discovery
+---
 
-Use only files returned by `rg --files` or `ls`. Do not invent paths.
+## Что сделано
 
-## Workspace
+### 1. Инлайн-маркдаун (message_bubble.dart)
+- `_CodeBuilder` теперь отличает inline code от fenced code blocks: если код короткий (<80 символов) и без `\n`, возвращает `null` → MarkdownStyleSheet.code обрабатывает как инлайн
+- Inline code перестал рендериться как отдельный блок plaintext
 
-Work in:
+### 2. Контекстное окно из API (chat_provider.dart)
+- Добавлено поле `contextLimit` в `ChatState` — полный контекст модели
+- `loadModels()` теперь парсит `contextWindow`/`maxTokens`/`context_length`/`max_context` из ответа API
+- `selectModel()` автоматически обновляет `maxTokens` и `contextLimit` при смене модели
+- `contextFillFraction` теперь считается от `contextLimit`, а не от `maxTokens`
+- `newChat()` сохраняет `contextLimit` модели
 
-```text
-/Users/min7t/OKAK APP v3/okakchat
+### 3. Агентский режим (code_screen.dart)
+- Добавлен `_AgentStatusBar` — статусная строка под top bar: спиннер + `· Transfiguring… (3m 49s · ↑ 8.4k tokens)`
+- Таймер отслеживает elapsed time во время стриминга
+- Менеджер статуса (`_updateStatus`) показывает разный текст для full/plan/ask режимов
+- `_ToolCallInline` — инструменты (tool calls) отображаются inline с детекцией типа (Edit/Run/Read/Search)
+- Tool calls можно сворачивать/разворачивать
+- Формирование частиц на фоне (ParticleFormation) зависит от режима: gear (full), brain (plan), code (ask)
+
+### 4. Дизайн (chat_input.dart, model_selector.dart)
+- **Модель без рамки**: `_ModelDropdown` — просто текст + иконка + chevron, без контейнера/рамки
+- **Кнопки без рамок**: `_SendButton` — без shadow/border, `_StopButton` — без border, `_AttachBtn` — 32×32 без фона
+- **Скрепка в поле ввода**: `_AttachBtn` встроена внутрь `Container` текстового поля, слева от `TextField`
+- **Bottom bar**: Settings и Model selector — всё минималистично, мелкий текст, без рамок
+- **Контекст**: _ContextChip показывает % от `contextLimit`
+
+### 5. Плавный стриминг (message_bubble.dart)
+- Во время стриминга MarkdownBody рендерится напрямую (без AnimatedSwitcher) — никаких лишних crossfade-анимаций на каждом чанке
+- AnimatedSwitcher остаётся только для финального (не streaming) сообщения — плавный переход при завершении
+
+### 6. Анимация звёзд (animated_background.dart)
+- Добавлен `ParticleFormation` enum: `none`, `circle`, `hammer`, `code`, `brain`, `gear`
+- `AnimatedBackground` принимает `formation` и `formationProgress`
+- Частицы плавно перелетают (lerp) в целевые позиции при смене формации
+- 6 shape-генераторов: circle (кольцо), hammer (молоток), code (</>), brain (нейро-форма), gear (шестерёнка)
+- FPS контролируется через AnimationController (1s repeat — ~60fps с учётом vsync)
+
+### 7. Скиллы (chat_input.dart, code_screen.dart)
+- Добавлено 8 новых slash skills: `/arch`, `/api`, `/db`, `/deploy`, `/ci`, `/fix`, `/pr`, `/commit`
+- В Code пустой экран добавлены 3 GitHub-подсказки: "Set up GitHub Actions CI", "Write a GitHub workflow", "Review this PR for issues"
+
+---
+
+## Изменённые файлы
+
+| File | Changes |
+|------|---------|
+| `lib/core/widgets/animated_background.dart` | ParticleFormation shapes, lerp animation, target positions |
+| `lib/features/chat/chat_provider.dart` | contextLimit, _contextLimitFor, selectModel context update |
+| `lib/features/chat/message_bubble.dart` | inline code fix, streaming без AnimatedSwitcher |
+| `lib/features/chat/chat_input.dart` | frameless model/buttons, attach in input, +8 skills |
+| `lib/features/chat/code_screen.dart` | AgentStatusBar, ToolCallInline, status timer, particle formations |
+| `CHECKPOINT.md` | этот файл |
+
+---
+
+## Что осталось (если нужно продолжать)
+
+1. **Agent file operations** — реальная интеграция `DesktopToolExecutor` с code_screen для чтения/записи файлов из агента
+2. **GitHub skills** — установка GitHub Actions workflows через UI в code mode
+3. **Anthropic skills** — интеграция с Anthropic API (Claude Code)
+4. **Мобильная адаптация** — проверить и донастроить compact layout на телефонах
+5. **Backend контекст** — если API не возвращает `contextWindow`, донастроить парсер в `_contextLimitFor`
+
+---
+
+## Команда проверки
+
+```bash
+dart analyze lib/
 ```
-
-Do not work from `okakchatbackend` for this Flutter task.
-
-## Dirty files to continue from
-
-These files currently contain in-progress user-approved work. Do not revert them:
-
-```text
-lib/core/api/ws_client.dart
-lib/features/chat/chat_input.dart
-lib/features/chat/chat_provider.dart
-lib/features/chat/chat_screen.dart
-lib/features/chat/code_screen.dart
-lib/features/chat/message_bubble.dart
-lib/features/chat/model_settings_sheet.dart
-lib/features/shell/sidebar.dart
-lib/core/l10n/
-lib/core/providers/
-lib/core/widgets/notification_banner.dart
-```
-
-## Recovery rules
-
-1. Start with `git status --short`.
-2. Read files in small chunks with `sed -n`, not huge parallel Bash batches.
-3. Use exact real paths:
-   - `lib/features/shell/sidebar.dart`
-   - the shell wrapper file returned by `ls lib/features/shell/*_shell.dart`
-   - `lib/features/chat/chat_provider.dart`
-   - `lib/features/chat/chat_screen.dart`
-   - `lib/features/chat/code_screen.dart`
-4. Do not ask what to do with `model_settings_sheet.dart`. Continue the feature work.
-5. Do not revert the current dirty worktree.
-
-## Feature task still in progress
-
-Continue the large OKAK Chat UI/functionality refactor:
-
-- Errors must be shown as standalone banners, not assistant bubbles.
-- Chat mode and Code mode are separate workspaces with separate chats/settings.
-- Code mode needs context-window usage display and permission settings.
-- Add file attachments to chat and code input.
-- Move profile/settings into a popup opened from the lower-left profile button.
-- Add sidebar hide/show.
-- Add long system prompts for chat and agent/code modes.
-- Add slash skill suggestions.
-- Move chat list into the sidebar where Chat/History/Settings used to be.
-- Add filtering/search for chats.
-- Add routines/tool-call style expandable blocks, not only plain bubbles.
-- Add model selection, reasoning, mode, context/limits under the input.
-- Add Russian localization and language setting.
-- Add close button on login screen.
-- Fix Stop button if still broken.
-- Add timestamps, copy, edit user message, and regenerate response.
-- Add automatic chat title generation.
-- Remove animated page slide transitions; switch instantly.
-
-## Next concrete step
-
-Finish `lib/features/shell/sidebar.dart` and the shell wrapper file first:
-
-- collapsible sidebar
-- new chat/new session button at top
-- chat list in sidebar
-- search/filter
-- profile popup at bottom
-- clean navigation to chat/code/settings/admin
-
-After that, run analyzer/build and fix compile errors.
