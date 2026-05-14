@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/api/chat_api.dart';
 import 'package:okakchat/core/api/ws_client.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/core/providers/conversations_provider.dart';
 import 'package:okakchat/core/providers/notifications_provider.dart';
 
 final chatApiProvider = Provider((ref) => ChatApi(ref.watch(dioProvider)));
@@ -98,7 +99,7 @@ class ChatState {
     this.models = const [],
     this.temperature = 0.7,
     this.systemPrompt,
-    this.maxTokens = 4096,
+    this.maxTokens = 64000,
     this.attachedFiles = const [],
     this.codeSettings = const CodeModeSettings(),
   });
@@ -288,6 +289,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
             state.selectedModel,
             isCodeMode ? 'coding' : 'chat',
           );
+      _ref.invalidate(conversationsProvider);
 
       await _ref.read(chatApiProvider).addMessage(convId, 'user', content);
     } catch (_) {}
@@ -353,6 +355,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
           await _ref
               .read(chatApiProvider)
               .addMessage(convId, 'assistant', assistantMsg.content);
+          // Auto-generate title after first exchange
+          if (state.conversationId == null) {
+            final betterTitle = _generateTitle(content, assistantMsg.content);
+            await _ref
+                .read(chatApiProvider)
+                .updateConversation(convId, title: betterTitle);
+            _ref.invalidate(conversationsProvider);
+          }
         }
       } catch (_) {}
       state = state.copyWith(
@@ -407,6 +417,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
   void addToolResult(String toolName, String result) {
     final toolMsg = ChatMessage(role: 'tool', content: result);
     state = state.copyWith(messages: [...state.messages, toolMsg]);
+  }
+
+  String _generateTitle(String userMsg, String assistantMsg) {
+    // Find a natural break point in the user message
+    final breakChars = ['.', '!', '?', '\n', ','];
+    var end = userMsg.length;
+    for (final c in breakChars) {
+      final idx = userMsg.indexOf(c);
+      if (idx > 0 && idx < end) end = idx;
+    }
+    var title = userMsg.substring(0, end > 40 ? 40 : end).trim();
+    if (title.length > 40) title = '${title.substring(0, 40)}…';
+    if (title.isEmpty) title = 'New chat';
+    return title;
   }
 
   // ── Notifications ────────────────────────────────────────────────────────

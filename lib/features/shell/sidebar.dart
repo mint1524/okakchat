@@ -7,16 +7,8 @@ import 'package:okakchat/core/api/chat_api.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
 import 'package:okakchat/core/providers/settings_provider.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
+import 'package:okakchat/core/providers/conversations_provider.dart';
 import 'package:okakchat/features/chat/chat_provider.dart';
-
-// ── Conversations provider ────────────────────────────────────────────────
-
-final conversationsProvider =
-    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-  final api = ChatApi(ref.watch(dioProvider));
-  final list = await api.getConversations();
-  return list.cast<Map<String, dynamic>>();
-});
 
 // ── Sidebar ───────────────────────────────────────────────────────────────
 

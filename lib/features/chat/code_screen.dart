@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -199,25 +200,84 @@ class _CodeTopBar extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Permission chips
-            _PermChip(
-              label: 'Files',
-              icon: Icons.folder_open_rounded,
-              active: settings.allowFileEdits,
-              onTap: () => ref
-                  .read(codeProvider.notifier)
-                  .setCodeSettings(settings.copyWith(
-                      allowFileEdits: !settings.allowFileEdits)),
+            // Workspace folder picker
+            _SmallIconBtn(
+              icon: Icons.folder_outlined,
+              tooltip: settings.workspacePath.isEmpty
+                  ? 'Select workspace folder'
+                  : settings.workspacePath.split('/').last,
+              onTap: () async {
+                final dir = await FilePicker.platform.getDirectoryPath();
+                if (dir != null) {
+                  ref.read(codeProvider.notifier).setCodeSettings(
+                      settings.copyWith(workspacePath: dir));
+                }
+              },
+            ),
+            if (settings.workspacePath.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              _PermChip(
+                label: 'Files',
+                icon: Icons.folder_open_rounded,
+                active: settings.allowFileEdits,
+                onTap: () => ref
+                    .read(codeProvider.notifier)
+                    .setCodeSettings(settings.copyWith(
+                        allowFileEdits: !settings.allowFileEdits)),
+              ),
+            ],
+            const SizedBox(width: 4),
+            Tooltip(
+              message: settings.allowCommands
+                  ? 'Commands allowed'
+                  : 'Commands blocked',
+              child: _PermChip(
+                label: 'Cmds',
+                icon: Icons.terminal_rounded,
+                active: settings.allowCommands,
+                onTap: () => ref
+                    .read(codeProvider.notifier)
+                    .setCodeSettings(settings.copyWith(
+                        allowCommands: !settings.allowCommands)),
+              ),
             ),
             const SizedBox(width: 4),
-            _PermChip(
-              label: 'Cmds',
-              icon: Icons.terminal_rounded,
-              active: settings.allowCommands,
+            Tooltip(
+              message: settings.allowNetworkAccess
+                  ? 'Network allowed'
+                  : 'Network blocked',
+              child: _PermChip(
+                label: 'Net',
+                icon: Icons.language_rounded,
+                active: settings.allowNetworkAccess,
+                onTap: () => ref
+                    .read(codeProvider.notifier)
+                    .setCodeSettings(settings.copyWith(
+                        allowNetworkAccess:
+                            !settings.allowNetworkAccess)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Agent mode dropdown
+            _ModeDropdown(
+              value: settings.agentMode,
+              onChanged: (v) => ref
+                  .read(codeProvider.notifier)
+                  .setCodeSettings(settings.copyWith(agentMode: v)),
+            ),
+            const SizedBox(width: 4),
+            // Reasoning toggle
+            _SmallIconBtn(
+              icon: Icons.psychology_outlined,
+              tooltip: settings.reasoningEnabled
+                  ? 'Reasoning: on'
+                  : 'Reasoning: off',
+              active: settings.reasoningEnabled,
               onTap: () => ref
                   .read(codeProvider.notifier)
                   .setCodeSettings(settings.copyWith(
-                      allowCommands: !settings.allowCommands)),
+                      reasoningEnabled:
+                          !settings.reasoningEnabled)),
             ),
             const Spacer(),
             // New chat
@@ -236,6 +296,48 @@ class _CodeTopBar extends ConsumerWidget {
                   provider: codeProvider),
             ),
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeDropdown extends StatelessWidget {
+  const _ModeDropdown({required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _modes = {'full': 'Full', 'plan': 'Plan', 'ask': 'Ask'};
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.surface1,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+            color: AppTheme.blue500.withValues(alpha: 0.15)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          dropdownColor: AppTheme.surface1,
+          style: GoogleFonts.dmMono(
+              fontSize: 10,
+              color: AppTheme.blue300,
+              fontWeight: FontWeight.w600),
+          items: _modes.entries
+              .map((e) => DropdownMenuItem(
+                    value: e.key,
+                    child: Text(e.value),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
         ),
       ),
     );
@@ -292,10 +394,11 @@ class _PermChip extends StatelessWidget {
 
 class _SmallIconBtn extends StatefulWidget {
   const _SmallIconBtn(
-      {required this.icon, required this.tooltip, required this.onTap});
+      {required this.icon, required this.tooltip, required this.onTap, this.active});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
+  final bool? active;
 
   @override
   State<_SmallIconBtn> createState() => _SmallIconBtnState();
@@ -317,13 +420,16 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: _hovered
-                    ? AppTheme.blue500.withValues(alpha: 0.1)
-                    : Colors.transparent,
+                color: widget.active == true
+                    ? AppTheme.blue500.withValues(alpha: 0.15)
+                    : _hovered
+                        ? AppTheme.blue500.withValues(alpha: 0.1)
+                        : Colors.transparent,
                 borderRadius: BorderRadius.circular(7),
               ),
               child: Icon(widget.icon,
-                  size: 16, color: AppTheme.textMid),
+                  size: 16,
+                  color: widget.active == true ? AppTheme.blue400 : AppTheme.textMid),
             ),
           ),
         ),
