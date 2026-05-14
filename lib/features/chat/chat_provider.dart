@@ -283,23 +283,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         if (chunk.done) break;
         if (chunk.error != null) {
           hadError = true;
-          // Show error as banner, not in bubble
           _showError(chunk.error!);
-          // Mark message as error
-          final idx = state.messages.indexOf(assistantMsg);
-          if (idx >= 0) {
-            final updated = List<ChatMessage>.from(state.messages);
-            updated[idx] = assistantMsg.copyWith(
-              content: '',
-              isStreaming: false,
-              isError: true,
-            );
-            state = state.copyWith(
-              conversationId: convId,
-              messages: updated,
-              isLoading: false,
-            );
-          }
           break;
         }
         if (chunk.content != null) {
@@ -315,13 +299,19 @@ class ChatNotifier extends StateNotifier<ChatState> {
         }
       }
     } catch (e) {
-      if (!_cancelled) {
-        _showError(e.toString());
-        hadError = true;
-      }
+      hadError = true;
+      if (!_cancelled) _showError(e.toString());
     }
 
-    if (!hadError) {
+    if (_cancelled || hadError) {
+      state = state.copyWith(
+        conversationId: convId,
+        messages: state.messages
+            .where((m) => m.id != assistantMsg.id)
+            .toList(),
+        isLoading: false,
+      );
+    } else {
       assistantMsg.isStreaming = false;
       try {
         if (convId != null) {
@@ -330,15 +320,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
               .addMessage(convId, 'assistant', assistantMsg.content);
         }
       } catch (_) {}
+      state = state.copyWith(
+        conversationId: convId,
+        messages: [...state.messages],
+        isLoading: false,
+      );
     }
 
-    state = state.copyWith(
-      conversationId: convId,
-      messages: [...state.messages],
-      isLoading: false,
-    );
-
-    if (pendingToolCall != null) {
+    if (pendingToolCall != null && !_cancelled && !hadError) {
       _pendingToolCallController.add(pendingToolCall);
     }
   }
