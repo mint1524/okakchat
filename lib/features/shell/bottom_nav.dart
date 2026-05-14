@@ -8,9 +8,10 @@ class AppBottomNav extends StatelessWidget {
   final bool isAdmin;
 
   int _currentIndex() {
-    if (currentLocation.startsWith('/history')) return 1;
-    if (currentLocation.startsWith('/settings')) return 2;
-    if (currentLocation.startsWith('/admin')) return 3;
+    if (currentLocation.startsWith('/code')) return 1;
+    if (currentLocation.startsWith('/history')) return 2;
+    if (currentLocation.startsWith('/settings')) return 3;
+    if (currentLocation.startsWith('/admin')) return 4;
     return 0;
   }
 
@@ -23,10 +24,12 @@ class AppBottomNav extends StatelessWidget {
           case 0:
             context.go('/chat');
           case 1:
-            context.go('/history');
+            context.go('/code');
           case 2:
-            context.go('/settings');
+            context.go('/history');
           case 3:
+            context.go('/settings');
+          case 4:
             context.go('/admin');
         }
       },
@@ -35,6 +38,10 @@ class AppBottomNav extends StatelessWidget {
             icon: Icon(Icons.chat_outlined),
             selectedIcon: Icon(Icons.chat),
             label: 'Chat'),
+        const NavigationDestination(
+            icon: Icon(Icons.code_outlined),
+            selectedIcon: Icon(Icons.code),
+            label: 'Code'),
         const NavigationDestination(
             icon: Icon(Icons.history), label: 'History'),
         const NavigationDestination(

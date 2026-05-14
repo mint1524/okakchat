@@ -201,13 +201,17 @@ class _AppSidebarState extends ConsumerState<AppSidebar> {
                               fontSize: 11, color: AppTheme.textLow)),
                     ),
                     data: (items) {
-                      final filtered = _filter.isEmpty
-                          ? items
-                          : items
-                              .where((c) => (c['title'] as String)
-                                  .toLowerCase()
-                                  .contains(_filter))
-                              .toList();
+                      final isCodeMode =
+                          widget.currentLocation.startsWith('/code');
+                      final filtered = items.where((c) {
+                        final mode = c['mode'] as String? ?? 'chat';
+                        if (isCodeMode && mode != 'coding') return false;
+                        if (!isCodeMode && mode == 'coding') return false;
+                        if (_filter.isEmpty) return true;
+                        return (c['title'] as String)
+                            .toLowerCase()
+                            .contains(_filter);
+                      }).toList();
                       if (filtered.isEmpty) {
                         return Center(
                           child: Text(

@@ -12,7 +12,7 @@ import 'package:okakchat/core/widgets/notification_banner.dart';
 import 'chat_provider.dart';
 import 'chat_input.dart';
 import 'model_settings_sheet.dart';
-import 'message_bubble.dart' show _TypingIndicator;
+import 'message_bubble.dart' show TypingIndicator;
 
 class CodeScreen extends ConsumerStatefulWidget {
   const CodeScreen({super.key});
@@ -510,7 +510,31 @@ class _CompactMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (message.role == 'tool') return const SizedBox.shrink();
+    if (message.role == 'tool') {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.surface1,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+                color: AppTheme.blue500.withValues(alpha: 0.12)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.terminal_rounded,
+                  size: 13, color: AppTheme.blue400),
+              const SizedBox(width: 6),
+              Text('Tool call',
+                  style: GoogleFonts.dmMono(
+                      fontSize: 11, color: AppTheme.blue300)),
+            ],
+          ),
+        ),
+      );
+    }
     if (message.role == 'user') {
       return Align(
         alignment: Alignment.centerRight,
@@ -562,7 +586,7 @@ class _CompactMessage extends StatelessWidget {
                   color: AppTheme.blue500.withValues(alpha: 0.1)),
             ),
             child: message.isStreaming && message.content.isEmpty
-                ? const _TypingIndicator()
+                ? const TypingIndicator()
                 : MarkdownBody(
                     data: message.content,
                     selectable: true,

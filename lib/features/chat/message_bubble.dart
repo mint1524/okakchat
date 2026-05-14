@@ -328,7 +328,7 @@ class _AssistantBubble extends ConsumerWidget {
                             color: AppTheme.blue500.withValues(alpha: 0.12)),
                       ),
                       child: message.isStreaming && message.content.isEmpty
-                          ? const _TypingIndicator()
+                          ? const TypingIndicator()
                           : MarkdownBody(
                               data: message.content,
                               selectable: true,
@@ -561,13 +561,13 @@ class _MsgActionBtnState extends State<_MsgActionBtn> {
 
 // ── Typing indicator ──────────────────────────────────────────────────────
 
-class _TypingIndicator extends StatefulWidget {
-  const _TypingIndicator();
+class TypingIndicator extends StatefulWidget {
+  const TypingIndicator({super.key});
   @override
-  State<_TypingIndicator> createState() => _TypingIndicatorState();
+  State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<_TypingIndicator>
+class _TypingIndicatorState extends State<TypingIndicator>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   @override
