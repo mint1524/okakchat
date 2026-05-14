@@ -41,19 +41,19 @@ class ChatMessage {
 
 // ── Presets for good system prompts ─────────────────────────────────────────
 
-const kChatSystemPrompt = '''You are a helpful, thoughtful, and concise AI assistant. \
-You communicate clearly in the language the user writes in. \
-When answering questions, prefer depth over breadth unless the user asks otherwise. \
-Always be honest — if you don't know something, say so. \
-Format responses with markdown where it aids clarity: use headers for long answers, \
+const kChatSystemPrompt = '''You are a helpful, thoughtful, and concise AI assistant.
+You communicate clearly in the language the user writes in.
+When answering questions, prefer depth over breadth unless the user asks otherwise.
+Always be honest — if you don't know something, say so.
+Format responses with markdown where it aids clarity: use headers for long answers,
 code blocks for any code, bullet points for lists. Keep answers focused.''';
 
-const kCodeSystemPrompt = '''You are an expert software engineer with deep knowledge \
-of multiple programming languages, frameworks, and best practices. \
-When writing code: always produce clean, production-ready, well-commented code. \
-Prefer modern idioms. Explain your reasoning briefly before or after the code. \
-When debugging: identify the root cause first, then propose the minimal fix. \
-When reviewing: be direct — point out bugs, performance issues, security flaws, \
+const kCodeSystemPrompt = '''You are an expert software engineer with deep knowledge
+of multiple programming languages, frameworks, and best practices.
+When writing code: always produce clean, production-ready, well-commented code.
+Prefer modern idioms. Explain your reasoning briefly before or after the code.
+When debugging: identify the root cause first, then propose the minimal fix.
+When reviewing: be direct — point out bugs, performance issues, security flaws,
 and style concerns. Use code blocks with language identifiers for all code snippets.''';
 
 class CodeModeSettings {
@@ -100,6 +100,7 @@ class ChatState {
     this.temperature = 0.7,
     this.systemPrompt,
     this.maxTokens = 64000,
+    this.contextLimit = 128000,
     this.attachedFiles = const [],
     this.codeSettings = const CodeModeSettings(),
   });
@@ -111,7 +112,8 @@ class ChatState {
   final double temperature;
   final String? systemPrompt;
   final int maxTokens;
-  final List<String> attachedFiles;     // file paths or names
+  final int contextLimit;
+  final List<String> attachedFiles;
   final CodeModeSettings codeSettings;
 
   /// Rough token estimate: 4 chars ≈ 1 token
@@ -123,7 +125,7 @@ class ChatState {
   }
 
   double get contextFillFraction =>
-      (estimatedTokensUsed / maxTokens).clamp(0.0, 1.0);
+      (estimatedTokensUsed / contextLimit).clamp(0.0, 1.0);
 
   ChatState copyWith({
     String? conversationId,
@@ -134,6 +136,7 @@ class ChatState {
     double? temperature,
     Object? systemPrompt = _sentinel,
     int? maxTokens,
+    int? contextLimit,
     List<String>? attachedFiles,
     CodeModeSettings? codeSettings,
   }) =>
@@ -148,6 +151,7 @@ class ChatState {
             ? this.systemPrompt
             : systemPrompt as String?,
         maxTokens: maxTokens ?? this.maxTokens,
+        contextLimit: contextLimit ?? this.contextLimit,
         attachedFiles: attachedFiles ?? this.attachedFiles,
         codeSettings: codeSettings ?? this.codeSettings,
       );
@@ -171,10 +175,28 @@ class ChatNotifier extends StateNotifier<ChatState> {
     try {
       final models = await _ref.read(chatApiProvider).getModels();
       final modelList = models.cast<Map<String, dynamic>>();
-      final defaultModel =
-          modelList.isNotEmpty ? modelList.first['id'] as String : 'gpt-4o';
-      state = state.copyWith(models: modelList, selectedModel: defaultModel);
+      if (modelList.isEmpty) return;
+      final defaultModel = modelList.first['id'] as String;
+      final ctx = _contextLimitFor(modelList.first);
+      state = state.copyWith(
+        models: modelList,
+        selectedModel: defaultModel,
+        maxTokens: ctx,
+        contextLimit: ctx,
+      );
     } catch (_) {}
+  }
+
+  int _contextLimitFor(Map<String, dynamic> model) {
+    // Try common API response keys for context window
+    final raw = model['contextWindow'] ??
+        model['maxTokens'] ??
+        model['context_length'] ??
+        model['max_context'] ??
+        128000;
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return 128000;
   }
 
   Future<void> loadConversation(String id) async {
@@ -199,8 +221,16 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   // ── Setters ──────────────────────────────────────────────────────────────
 
-  void selectModel(String modelId) =>
-      state = state.copyWith(selectedModel: modelId);
+  void selectModel(String modelId) {
+    final model = state.models.cast<Map<String, dynamic>?>().firstWhere(
+        (m) => m?['id'] == modelId, orElse: () => null);
+    final ctx = model != null ? _contextLimitFor(model) : state.contextLimit;
+    state = state.copyWith(
+      selectedModel: modelId,
+      maxTokens: ctx,
+      contextLimit: ctx,
+    );
+  }
   void setTemperature(double v) => state = state.copyWith(temperature: v);
   void setSystemPrompt(String? v) => state = state.copyWith(systemPrompt: v);
   void setMaxTokens(int v) => state = state.copyWith(maxTokens: v);
@@ -220,7 +250,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
         selectedModel: state.selectedModel,
         temperature: state.temperature,
         systemPrompt: isCodeMode ? kCodeSystemPrompt : kChatSystemPrompt,
-        maxTokens: state.maxTokens,
+        maxTokens: state.contextLimit,
+        contextLimit: state.contextLimit,
         codeSettings: state.codeSettings,
       );
 
@@ -249,7 +280,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         if (bytes.length > 50 * 1024 * 1024) {
           return <String, String>{
             'name': name,
-            'content': '[File too large: ${name}]',
+            'content': '[File too large: $name]',
           };
         }
         final ext = name.contains('.') ? name.split('.').last : '';
