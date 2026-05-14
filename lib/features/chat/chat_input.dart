@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:okakchat/core/api/ws_client.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'chat_provider.dart';
+import 'model_picker.dart';
 import 'model_settings_sheet.dart';
 
 // ── Skills definition ─────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ class _ChatInputState extends ConsumerState<ChatInput>
     final has = _ctrl.text.trim().isNotEmpty;
     if (has != _hasText) {
       setState(() => _hasText = has);
-      if (has) _sendCtrl.forward(); else _sendCtrl.reverse();
+      if (has) { _sendCtrl.forward(); } else { _sendCtrl.reverse(); }
     }
     // Slash skill suggestions
     final text = _ctrl.text;
@@ -264,12 +265,10 @@ class _BottomBar extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       child: Row(children: [
         // Model selector
-        Expanded(
-          child: _ModelDropdown(
-            selectedModel: state.selectedModel,
-            models: state.models,
-            onSelected: notifier.selectModel,
-          ),
+        ModelPickerButton(
+          selectedModel: state.selectedModel,
+          models: state.models,
+          onSelected: notifier.selectModel,
         ),
         const SizedBox(width: 8),
         // Context window indicator
@@ -452,91 +451,6 @@ class _ContextChip extends StatelessWidget {
           ),
         ]),
       );
-}
-
-class _ModelDropdown extends StatelessWidget {
-  const _ModelDropdown({
-    required this.selectedModel,
-    required this.models,
-    required this.onSelected,
-  });
-  final String selectedModel;
-  final List<Map<String, dynamic>> models;
-  final void Function(String) onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    if (models.isEmpty) return const SizedBox.shrink();
-    final validId = models.any((m) => m['id'] == selectedModel)
-        ? selectedModel
-        : models.first['id'] as String;
-    final selected = models.firstWhere((m) => m['id'] == validId);
-
-    return PopupMenuButton<String>(
-      onSelected: onSelected,
-      color: AppTheme.surface2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: AppTheme.blue500.withValues(alpha: 0.2)),
-      ),
-      itemBuilder: (_) => models.map((m) {
-        final id = m['id'] as String;
-        final name = m['displayName'] as String;
-        final isSel = id == validId;
-        return PopupMenuItem<String>(
-          value: id,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          child: Row(children: [
-            if (isSel)
-              Icon(Icons.check_rounded,
-                  size: 14, color: AppTheme.blue400)
-            else
-              const SizedBox(width: 14),
-            const SizedBox(width: 8),
-            Text(name,
-                style: GoogleFonts.sora(
-                    fontSize: 13,
-                    color: isSel
-                        ? AppTheme.blue300
-                        : AppTheme.textHigh,
-                    fontWeight: isSel
-                        ? FontWeight.w600
-                        : FontWeight.w400)),
-          ]),
-        );
-      }).toList(),
-      child: Container(
-        height: 28,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.surface2,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-              color: AppTheme.blue500.withValues(alpha: 0.15)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.psychology_rounded,
-              size: 13, color: AppTheme.blue400),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              selected['displayName'] as String,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: AppTheme.textHigh,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.expand_more_rounded,
-              size: 13, color: AppTheme.textMid),
-        ]),
-      ),
-    );
-  }
 }
 
 // ── Skill suggestions overlay ─────────────────────────────────────────────
