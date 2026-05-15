@@ -182,33 +182,29 @@ class _Trigger extends StatelessWidget {
   const _Trigger({required this.name});
   final String name;
 
+  // Compact display: drop the trailing thinking level so the trigger
+  // stays short (e.g. "GPT-5.1 Codex High Thinking" -> "GPT-5.1 Codex").
+  String get _short => _extractBase(name);
+
   @override
-  Widget build(BuildContext context) => Container(
-        height: 28,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppTheme.surface2,
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-              color: AppTheme.blue500.withValues(alpha: 0.15)),
-        ),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.psychology_rounded,
-              size: 13, color: AppTheme.blue400),
-          const SizedBox(width: 6),
           Flexible(
             child: Text(
-              name,
+              _short,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: AppTheme.textHigh,
-                  fontWeight: FontWeight.w500),
+                fontSize: 12.5,
+                color: AppTheme.textHigh,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           Icon(Icons.expand_more_rounded,
-              size: 13, color: AppTheme.textMid),
+              size: 14, color: AppTheme.textMid),
         ]),
       );
 }
