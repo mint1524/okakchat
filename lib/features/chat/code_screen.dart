@@ -27,7 +27,6 @@ class CodeScreen extends ConsumerStatefulWidget {
 
 class _CodeScreenState extends ConsumerState<CodeScreen> {
   final _scrollCtrl = ScrollController();
-  int? _focusedSnippetIndex;
   String _statusText = '';
   Timer? _statusTimer;
   int _elapsedSeconds = 0;
@@ -69,6 +68,7 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
       if (!confirmed) {
         ref.read(codeProvider.notifier).continueWithToolResult(
           toolName, 'User skipped this action.',
+          args: args,
           tools: agentTools,
         );
         return;
@@ -87,6 +87,7 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
 
     ref.read(codeProvider.notifier).continueWithToolResult(
       toolName, result,
+      args: args,
       tools: agentTools,
     );
   }
@@ -188,7 +189,6 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
     ref.listen(codeProvider, (prev, next) {
       if (next.messages.length != prev?.messages.length) {
         _scrollToBottom();
-        setState(() => _focusedSnippetIndex = null);
       }
       final wasLoading = prev?.isLoading ?? false;
       final nowLoading = next.isLoading;
@@ -228,6 +228,18 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
               formationProgress: state.isLoading ? 0.6 : 0.0,
             )),
         Column(children: [
+          // Top progress bar (always present to avoid Positioned/Column issues)
+          SizedBox(
+            height: 2,
+            child: _processing
+                ? LinearProgressIndicator(
+                    backgroundColor:
+                        AppTheme.blue500.withValues(alpha: 0.15),
+                    color: AppTheme.blue400,
+                    minHeight: 2,
+                  )
+                : const SizedBox.shrink(),
+          ),
           _CodeTopBar(),
           Container(
               height: 1,
@@ -247,21 +259,9 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
                 : _DesktopLayout(
                     state: state,
                     scrollCtrl: _scrollCtrl,
-                    snippets: snippets,
-                    focusedIndex: _focusedSnippetIndex,
-                    onFocus: (i) =>
-                        setState(() => _focusedSnippetIndex = i),
                   ),
           ),
           _GlassCodeInput(onSend: _scrollToBottom),
-          if (_processing)
-            Positioned(
-              top: 0, left: 0, right: 0,
-              child: LinearProgressIndicator(
-                backgroundColor: AppTheme.blue500.withValues(alpha: 0.15),
-                color: AppTheme.blue400,
-              ),
-            ),
         ]),
       ]),
     );
@@ -625,37 +625,21 @@ class _DesktopLayout extends StatelessWidget {
   const _DesktopLayout({
     required this.state,
     required this.scrollCtrl,
-    required this.snippets,
-    required this.focusedIndex,
-    required this.onFocus,
   });
   final ChatState state;
   final ScrollController scrollCtrl;
-  final List<_CodeSnippet> snippets;
-  final int? focusedIndex;
-  final void Function(int?) onFocus;
 
   @override
-  Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 360,
-            child: _ConversationPanel(
-                state: state, scrollCtrl: scrollCtrl),
-          ),
-          Container(
-              width: 1,
-              color: AppTheme.blue500.withValues(alpha: 0.1)),
-          Expanded(
-            child: _CodeOutputPanel(
-              snippets: snippets,
-              focusedIndex: focusedIndex,
-              onFocus: onFocus,
-              isLoading: state.isLoading,
-            ),
-          ),
-        ],
+  Widget build(BuildContext context) =>
+      // Full-width conversation (Claude Code-style transcript). The right
+      // code-output panel was removed because the agent now uses tools
+      // (write_file/edit_file) directly instead of printing code blocks.
+      Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: _ConversationPanel(
+              state: state, scrollCtrl: scrollCtrl),
+        ),
       );
 }
 
@@ -793,6 +777,8 @@ class _ConversationPanel extends StatelessWidget {
   }
 }
 
+/// Claude-Code-style flat transcript: no bubbles, just a left rail marker
+/// plus the content flowing in the column.
 class _CompactMessage extends StatelessWidget {
   const _CompactMessage({required this.message});
   final ChatMessage message;
@@ -802,78 +788,72 @@ class _CompactMessage extends StatelessWidget {
     if (message.role == 'tool') {
       return _ToolCallInline(message: message);
     }
-    if (message.role == 'user') {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          margin: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 3),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 7),
-          constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.65),
-          decoration: BoxDecoration(
-            color: AppTheme.blue700.withValues(alpha: 0.8),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              topRight: Radius.circular(12),
-              bottomLeft: Radius.circular(12),
-              bottomRight: Radius.circular(3),
+    final isUser = message.role == 'user';
+    final accent = isUser ? AppTheme.blue400 : AppTheme.blue300;
+    final label = isUser ? '>' : '\u2726'; // ❯ user, ✦ assistant
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left rail marker (Claude Code uses a small caret/dot)
+          SizedBox(
+            width: 18,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                label,
+                style: GoogleFonts.dmMono(
+                  fontSize: 12,
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            border: Border.all(
-                color: AppTheme.blue500.withValues(alpha: 0.3)),
           ),
-          child: Text(message.content,
-              style: GoogleFonts.sora(
-                  fontSize: 13,
-                  color: AppTheme.textHigh,
-                  height: 1.5)),
-        ),
-      );
-    }
-    // Assistant
-    return Container(
-      margin:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(3),
-          topRight: Radius.circular(12),
-          bottomLeft: Radius.circular(12),
-          bottomRight: Radius.circular(12),
-        ),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: AppTheme.blue500.withValues(alpha: 0.06),
-              border: Border.all(
-                  color: AppTheme.blue500.withValues(alpha: 0.1)),
-            ),
-            child: message.isStreaming && message.content.isEmpty
-                ? const TypingIndicator()
-                : MarkdownBody(
-                    data: message.content,
-                    selectable: true,
-                    styleSheet: MarkdownStyleSheet(
-                      p: GoogleFonts.sora(
-                          fontSize: 13,
-                          color: AppTheme.textHigh,
-                          height: 1.6),
-                      code: GoogleFonts.dmMono(
-                          fontSize: 12,
-                          color: AppTheme.blue300),
-                      codeblockDecoration: BoxDecoration(
-                        color: const Color(0xFF0D1117),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      codeblockPadding: const EdgeInsets.all(10),
+          Expanded(
+            child: isUser
+                ? SelectableText(
+                    message.content,
+                    style: GoogleFonts.sora(
+                      fontSize: 13.5,
+                      color: AppTheme.textHigh,
+                      height: 1.55,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ),
+                  )
+                : (message.isStreaming && message.content.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: TypingIndicator(),
+                      )
+                    : MarkdownBody(
+                        data: message.content,
+                        selectable: true,
+                        styleSheet: MarkdownStyleSheet(
+                          p: GoogleFonts.sora(
+                              fontSize: 13.5,
+                              color: AppTheme.textHigh,
+                              height: 1.6),
+                          code: GoogleFonts.dmMono(
+                              fontSize: 12,
+                              color: AppTheme.blue300,
+                              backgroundColor:
+                                  AppTheme.blue500.withValues(alpha: 0.08)),
+                          codeblockDecoration: BoxDecoration(
+                            color: const Color(0xFF0D1117),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: AppTheme.blue500
+                                    .withValues(alpha: 0.12)),
+                          ),
+                          codeblockPadding: const EdgeInsets.all(12),
+                          blockSpacing: 8,
+                        ),
+                      )),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -884,13 +864,9 @@ class _CompactMessage extends StatelessWidget {
 class _CodeOutputPanel extends StatelessWidget {
   const _CodeOutputPanel({
     required this.snippets,
-    this.focusedIndex,
-    this.onFocus,
     this.isLoading = false,
   });
   final List<_CodeSnippet> snippets;
-  final int? focusedIndex;
-  final void Function(int?)? onFocus;
   final bool isLoading;
 
   @override
@@ -898,17 +874,13 @@ class _CodeOutputPanel extends StatelessWidget {
     if (snippets.isEmpty) {
       return _NoCodePlaceholder(isLoading: isLoading);
     }
-    final displayIndex = focusedIndex ?? snippets.length - 1;
-    final snippet = displayIndex < snippets.length
-        ? snippets[displayIndex]
-        : snippets.last;
-
+    final snippet = snippets.last;
     return Column(children: [
       if (snippets.length > 1)
         _SnippetTabs(
           snippets: snippets,
-          selectedIndex: displayIndex,
-          onSelect: onFocus ?? (_) {},
+          selectedIndex: snippets.length - 1,
+          onSelect: (_) {},
         ),
       Expanded(child: _SnippetView(snippet: snippet)),
     ]);
@@ -1240,99 +1212,116 @@ class _ToolCallInline extends StatefulWidget {
 class _ToolCallInlineState extends State<_ToolCallInline> {
   bool _expanded = false;
 
-  String _detectToolName(String content) {
-    if (content.contains('write_file') || content.contains('edit_file')) return 'Edit';
-    if (content.contains('execute_command')) return 'Run';
-    if (content.contains('read_file') || content.contains('grep')) return 'Read';
-    if (content.contains('web_search') || content.contains('fetch')) return 'Search';
-    return 'Tool';
+  /// Splits the tool message into a header (first line, e.g. `$ ls -la`) and
+  /// the body (everything else — the captured output).
+  ({String header, String body}) _split(String raw) {
+    final idx = raw.indexOf('\n');
+    if (idx < 0) return (header: raw, body: '');
+    return (header: raw.substring(0, idx), body: raw.substring(idx + 1));
+  }
+
+  IconData _iconFor(String header) {
+    if (header.startsWith('\$')) return Icons.terminal_rounded;
+    if (header.contains('write') || header.contains('edit')) {
+      return Icons.edit_note_rounded;
+    }
+    if (header.contains('read')) return Icons.description_outlined;
+    if (header.contains('ls')) return Icons.folder_open_rounded;
+    if (header.contains('grep')) return Icons.search_rounded;
+    return Icons.bolt_rounded;
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        child: GestureDetector(
-          onTap: () {
-            setState(() => _expanded = !_expanded);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.surface1.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                  color: AppTheme.blue500.withValues(alpha: 0.12)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: AppTheme.blue500.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Icon(Icons.terminal_rounded,
-                      size: 12, color: AppTheme.blue400),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Text(
-                          _detectToolName(widget.message.content),
-                          style: GoogleFonts.dmMono(
-                              fontSize: 10,
-                              color: AppTheme.blue300,
-                              fontWeight: FontWeight.w600),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          _expanded
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          size: 12,
-                          color: AppTheme.textLow,
-                        ),
-                      ]),
-                      if (_expanded) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0D1117),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            widget.message.content,
-                            style: GoogleFonts.dmMono(
-                                fontSize: 10,
-                                color: AppTheme.textMid,
-                                height: 1.5),
-                          ),
-                        ),
-                      ] else
-                        Text(
-                          widget.message.content.length > 60
-                              ? '${widget.message.content.substring(0, 60)}\u2026'
-                              : widget.message.content,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.dmMono(
-                              fontSize: 10, color: AppTheme.textLow),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    final parts = _split(widget.message.content);
+    final hasBody = parts.body.trim().isNotEmpty;
+    final bodyLineCount =
+        hasBody ? parts.body.trim().split('\n').length : 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Match _CompactMessage rail width so tool calls visually align
+          // with assistant/user turns.
+          SizedBox(
+            width: 18,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Icon(_iconFor(parts.header),
+                  size: 12, color: AppTheme.blue400),
             ),
           ),
-        ),
-      );
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1117).withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: AppTheme.blue500.withValues(alpha: 0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header — always visible, click to toggle body
+                  InkWell(
+                    onTap: hasBody
+                        ? () => setState(() => _expanded = !_expanded)
+                        : null,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      child: Row(children: [
+                        Expanded(
+                          child: SelectableText(
+                            parts.header,
+                            style: GoogleFonts.dmMono(
+                                fontSize: 11.5,
+                                color: AppTheme.blue300,
+                                fontWeight: FontWeight.w500,
+                                height: 1.4),
+                            maxLines: 1,
+                          ),
+                        ),
+                        if (hasBody) ...[
+                          Text('$bodyLineCount lines',
+                              style: GoogleFonts.dmMono(
+                                  fontSize: 10, color: AppTheme.textLow)),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _expanded
+                                ? Icons.unfold_less_rounded
+                                : Icons.unfold_more_rounded,
+                            size: 12,
+                            color: AppTheme.textLow,
+                          ),
+                        ],
+                      ]),
+                    ),
+                  ),
+                  // Body (output) — terminal-styled
+                  if (hasBody && _expanded)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
+                      child: SelectableText(
+                        parts.body.trimRight(),
+                        style: GoogleFonts.dmMono(
+                            fontSize: 11,
+                            color: AppTheme.textMid,
+                            height: 1.45),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Data model ────────────────────────────────────────────────────────────

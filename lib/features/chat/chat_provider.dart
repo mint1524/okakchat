@@ -56,6 +56,39 @@ When debugging: identify the root cause first, then propose the minimal fix.
 When reviewing: be direct — point out bugs, performance issues, security flaws,
 and style concerns. Use code blocks with language identifiers for all code snippets.''';
 
+/// Returns a human-readable OS name for the current platform.
+String _detectOsName() {
+  if (kIsWeb) return 'Web (browser)';
+  if (Platform.isMacOS) return 'macOS';
+  if (Platform.isWindows) return 'Windows';
+  if (Platform.isLinux) return 'Linux';
+  if (Platform.isIOS) return 'iOS';
+  if (Platform.isAndroid) return 'Android';
+  return 'unknown';
+}
+
+/// Builds the runtime environment block appended to the system prompt so
+/// the model knows the actual platform / shell / workspace it is operating in.
+String buildEnvironmentBlock({String workspacePath = ''}) {
+  final os = _detectOsName();
+  final shell = (!kIsWeb && (Platform.isMacOS || Platform.isLinux))
+      ? '/bin/sh (POSIX)'
+      : (!kIsWeb && Platform.isWindows ? 'cmd.exe' : 'n/a');
+  final cwd = workspacePath.isNotEmpty
+      ? workspacePath
+      : (!kIsWeb ? Directory.current.path : '(browser sandbox)');
+  return '''
+
+<environment>
+Operating system: $os
+Shell: $shell
+Workspace directory: $cwd
+When suggesting commands, use syntax appropriate for $os.
+On macOS prefer BSD-style flags (e.g. `sed -i ''`, `find . -name`), not GNU-only variants.
+All file paths must be absolute unless explicitly relative to the workspace.
+</environment>''';
+}
+
 class CodeModeSettings {
   const CodeModeSettings({
     this.allowFileEdits = false,
@@ -343,14 +376,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
   }
 
   /// Continue after a tool result: re-sends the conversation to the AI.
+  /// [args] is the original tool-call arguments so we can render a useful
+  /// "command + output" summary instead of a bare result string.
   Future<void> continueWithToolResult(
-    String toolName, String result, {
+    String toolName,
+    String result, {
+    Map<String, dynamic>? args,
     List<Map<String, dynamic>>? tools,
   }) async {
     if (_cancelled) return;
     _generationId++;
-    // Add tool result to conversation history
-    final toolMsg = ChatMessage(role: 'tool', content: '$toolName:\n$result');
+    final summary = _formatToolMessage(toolName, args ?? const {}, result);
+    final toolMsg = ChatMessage(role: 'tool', content: summary);
     final assistantMsg =
         ChatMessage(role: 'assistant', content: '', isStreaming: true);
 
@@ -367,6 +404,30 @@ class ChatNotifier extends StateNotifier<ChatState> {
     );
   }
 
+  /// Renders a tool invocation + result in a shell-transcript style so it
+  /// looks like a terminal session both to the model and to the user.
+  String _formatToolMessage(
+      String toolName, Map<String, dynamic> args, String result) {
+    final trimmed = result.trim().isEmpty ? '(no output)' : result.trim();
+    switch (toolName) {
+      case 'execute_command':
+        final cmd = args['command'] ?? '';
+        return '\$ $cmd\n$trimmed';
+      case 'read_file':
+        return '\u2261 read ${args['path']}\n$trimmed';
+      case 'list_directory':
+        return '\u2261 ls ${args['path']}\n$trimmed';
+      case 'search_files':
+        return '\u2261 grep ${args['pattern']} ${args['path']}\n$trimmed';
+      case 'write_file':
+        return '\u2261 write ${args['path']}\n$trimmed';
+      case 'edit_file':
+        return '\u2261 edit ${args['path']}\n$trimmed';
+      default:
+        return '$toolName\n$trimmed';
+    }
+  }
+
   Future<void> _streamResponse({
     required String? convId,
     required List<ChatMessage> messages,
@@ -379,13 +440,20 @@ class ChatNotifier extends StateNotifier<ChatState> {
         .map((m) => {'role': m.role, 'content': m.content})
         .toList();
 
+    // Append runtime environment so the model knows the real OS/shell/cwd.
+    final basePrompt = state.systemPrompt ?? '';
+    final envBlock = buildEnvironmentBlock(
+        workspacePath: state.codeSettings.workspacePath);
+    final effectivePrompt =
+        basePrompt.isEmpty ? envBlock.trimLeft() : '$basePrompt$envBlock';
+
     final wsStream = _ref.read(wsClientProvider).stream(
           state.selectedModel,
           wsMessages,
           conversationId: convId,
           tools: tools,
           temperature: state.temperature,
-          systemPrompt: state.systemPrompt,
+          systemPrompt: effectivePrompt,
           maxTokens: state.maxTokens,
           files: filesToSend?.isNotEmpty == true ? filesToSend : null,
         );
@@ -393,6 +461,22 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final buffer = StringBuffer();
     Map<String, dynamic>? pendingToolCall;
     bool hadError = false;
+    // Throttle UI updates to ~30 fps so streaming feels smooth instead of
+    // rebuilding the full transcript on every token.
+    var lastFlush = DateTime.now();
+    var dirty = false;
+    const flushInterval = Duration(milliseconds: 33);
+
+    void flush() {
+      if (!dirty) return;
+      assistantMsg.content = buffer.toString();
+      state = state.copyWith(
+        conversationId: convId,
+        messages: [...state.messages],
+      );
+      dirty = false;
+      lastFlush = DateTime.now();
+    }
 
     try {
       await for (final chunk in wsStream) {
@@ -405,16 +489,17 @@ class ChatNotifier extends StateNotifier<ChatState> {
         }
         if (chunk.content != null) {
           buffer.write(chunk.content);
-          assistantMsg.content = buffer.toString();
-          state = state.copyWith(
-            conversationId: convId,
-            messages: [...state.messages],
-          );
+          dirty = true;
+          if (DateTime.now().difference(lastFlush) >= flushInterval) {
+            flush();
+          }
         }
         if (chunk.toolCall != null) {
           pendingToolCall = chunk.toolCall;
         }
       }
+      // Final flush so we don't lose the last unflushed tokens.
+      flush();
     } catch (e) {
       hadError = true;
       if (!_cancelled) _showError(e.toString());
