@@ -11,9 +11,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/widgets/animated_background.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:okakchat/core/widgets/notification_banner.dart';
 import 'package:okakchat/features/agent/tool_definitions.dart';
 import 'package:okakchat/features/agent/tools/tool_executor.dart';
+import 'agent_status_strip.dart';
 import 'chat_provider.dart';
 import 'chat_input.dart';
 import 'model_settings_sheet.dart';
@@ -27,11 +29,11 @@ class CodeScreen extends ConsumerStatefulWidget {
 
 class _CodeScreenState extends ConsumerState<CodeScreen> {
   final _scrollCtrl = ScrollController();
-  String _statusText = '';
   Timer? _statusTimer;
   int _elapsedSeconds = 0;
   StreamSubscription<Map<String, dynamic>>? _toolSub;
   bool _processing = false;
+  String? _currentToolName;
 
   @override
   void initState() {
@@ -40,7 +42,10 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
       try {
         await ref.read(codeProvider.notifier).loadModels();
       } catch (_) {}
-      _toolSub = ref.read(codeProvider.notifier).toolCallStream.listen(_handleToolCall);
+      _toolSub = ref
+          .read(codeProvider.notifier)
+          .toolCallStream
+          .listen(_handleToolCall);
     });
   }
 
@@ -58,41 +63,65 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
     if (function == null) return;
 
     final toolName = function['name'] as String;
-    final args = jsonDecode(function['arguments'] as String) as Map<String, dynamic>;
+    final args =
+        jsonDecode(function['arguments'] as String) as Map<String, dynamic>;
 
     // Bypass (full) — никогда не спрашиваем, как в Claude/Codex.
     // ask/plan — спрашиваем всё неоднозначное (любые tool calls).
+    AppLogger.tool('inbound $toolName  mode=${settings.agentMode}');
     final needsConfirm = settings.agentMode != 'full';
     if (needsConfirm) {
+      AppLogger.tap('Tool confirm dialog — $toolName');
       final confirmed = await _showToolConfirm(toolName, args);
+      AppLogger.tap('Tool confirm → ${confirmed ? "ALLOW" : "SKIP"}');
       if (!confirmed) {
         ref.read(codeProvider.notifier).continueWithToolResult(
-          toolName, 'User skipped this action.',
-          args: args,
-          tools: agentTools,
-        );
+              toolName,
+              'User skipped this action.',
+              args: args,
+              tools: agentTools,
+            );
         return;
       }
     }
 
-    setState(() => _processing = true);
+    setState(() {
+      _processing = true;
+      _currentToolName = toolName;
+    });
     final genAtStart = ref.read(codeProvider.notifier).generationId;
     final executor = DesktopToolExecutor();
-    final result = await executor.dispatch(toolName, args);
+    // Race dispatch against cancel token — Stop button wins immediately.
+    final cancelToken = Completer<String>();
+    ref.read(codeProvider.notifier).registerToolCancelToken(cancelToken);
+    final String result;
+    try {
+      result = await Future.any([
+        executor.dispatch(toolName, args),
+        cancelToken.future,
+      ]);
+    } finally {
+      ref.read(codeProvider.notifier).clearToolCancelToken();
+    }
     if (!mounted) return;
-    setState(() => _processing = false);
+    setState(() {
+      _processing = false;
+      _currentToolName = null;
+    });
 
     if (ref.read(codeProvider.notifier).isCancelled) return;
     if (ref.read(codeProvider.notifier).generationId != genAtStart) return;
 
     ref.read(codeProvider.notifier).continueWithToolResult(
-      toolName, result,
-      args: args,
-      tools: agentTools,
-    );
+          toolName,
+          result,
+          args: args,
+          tools: agentTools,
+        );
   }
 
-  Future<bool> _showToolConfirm(String toolName, Map<String, dynamic> args) async {
+  Future<bool> _showToolConfirm(
+      String toolName, Map<String, dynamic> args) async {
     final dangerous = toolName == 'execute_command';
     return await showDialog<bool>(
           context: context,
@@ -122,31 +151,13 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
   void _updateStatus() {
     final state = ref.read(codeProvider);
     final lastMsg = state.messages.isNotEmpty ? state.messages.last : null;
-    if (state.isLoading || (lastMsg?.isStreaming ?? false)) {
-      final totalTokens = state.estimatedTokensUsed;
-      final elapsed = _elapsedSeconds;
-      final mins = elapsed ~/ 60;
-      final secs = elapsed % 60;
-      final timeStr = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
-      if (state.codeSettings.agentMode == 'full') {
-        _statusText = '\u00b7 Transfiguring\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
-      } else if (state.codeSettings.agentMode == 'plan') {
-        _statusText = '\u00b7 Planning\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
-      } else {
-        _statusText = '\u00b7 Thinking\u2026 ($timeStr \u00b7 \u2191 ${_fmtTokens(totalTokens)} tokens)';
-      }
-    } else {
-      _statusText = '';
+    final running = state.isLoading || (lastMsg?.isStreaming ?? false);
+    if (!running) {
       _elapsedSeconds = 0;
       _statusTimer?.cancel();
       _statusTimer = null;
     }
     if (mounted) setState(() {});
-  }
-
-  String _fmtTokens(int n) {
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
-    return n.toString();
   }
 
   void _scrollToBottom() {
@@ -171,9 +182,8 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
         snippets.insert(
           0,
           _CodeSnippet(
-            language: m.group(1)?.isNotEmpty == true
-                ? m.group(1)!
-                : 'plaintext',
+            language:
+                m.group(1)?.isNotEmpty == true ? m.group(1)! : 'plaintext',
             code: m.group(2) ?? '',
           ),
         );
@@ -219,36 +229,62 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
                 : ParticleFormation.code)
         : ParticleFormation.none;
 
+    // ── Derive current agent phase for the bottom status strip ───────
+    final lastMsg = state.messages.isNotEmpty ? state.messages.last : null;
+    final assistantStreaming =
+        lastMsg?.role == 'assistant' && (lastMsg?.isStreaming ?? false);
+    final AgentPhase phase;
+    final String phaseLabel;
+    if (_processing) {
+      switch (_currentToolName) {
+        case 'read_file':
+          phase = AgentPhase.reading;
+          phaseLabel = 'Reading file';
+        case 'write_file':
+          phase = AgentPhase.writing;
+          phaseLabel = 'Writing file';
+        case 'edit_file':
+          phase = AgentPhase.editing;
+          phaseLabel = 'Editing file';
+        case 'execute_command':
+          phase = AgentPhase.running;
+          phaseLabel = 'Running command';
+        case 'list_directory':
+          phase = AgentPhase.listing;
+          phaseLabel = 'Listing directory';
+        case 'search_files':
+          phase = AgentPhase.searching;
+          phaseLabel = 'Searching files';
+        default:
+          phase = AgentPhase.running;
+          phaseLabel = 'Waiting for tool';
+      }
+    } else if (assistantStreaming) {
+      if ((lastMsg?.content.isEmpty ?? true)) {
+        phase = AgentPhase.thinking;
+        phaseLabel =
+            state.codeSettings.agentMode == 'plan' ? 'Planning' : 'Thinking';
+      } else {
+        phase = AgentPhase.streaming;
+        phaseLabel = 'Responding';
+      }
+    } else {
+      phase = AgentPhase.idle;
+      phaseLabel = '';
+    }
+    final showStatus = phase != AgentPhase.idle;
+
     return NotificationBannerStack(
       child: Stack(children: [
         Positioned.fill(
             child: AnimatedBackground(
-              particleCount: 14,
-              formation: formation,
-              formationProgress: state.isLoading ? 0.6 : 0.0,
-            )),
+          particleCount: 14,
+          formation: formation,
+          formationProgress: state.isLoading ? 0.6 : 0.0,
+        )),
         Column(children: [
-          // Top progress bar (always present to avoid Positioned/Column issues)
-          SizedBox(
-            height: 2,
-            child: _processing
-                ? LinearProgressIndicator(
-                    backgroundColor:
-                        AppTheme.blue500.withValues(alpha: 0.15),
-                    color: AppTheme.blue400,
-                    minHeight: 2,
-                  )
-                : const SizedBox.shrink(),
-          ),
           _CodeTopBar(),
-          Container(
-              height: 1,
-              color: AppTheme.blue500.withValues(alpha: 0.1)),
-          // Status bar during streaming or tool processing
-          if (_statusText.isNotEmpty)
-            _AgentStatusBar(text: _statusText),
-          if (_processing && _statusText.isEmpty)
-            _AgentStatusBar(text: '\u00b7 Executing tool\u2026'),
+          Container(height: 1, color: AppTheme.blue500.withValues(alpha: 0.1)),
           Expanded(
             child: isMobile
                 ? _MobileLayout(
@@ -261,46 +297,30 @@ class _CodeScreenState extends ConsumerState<CodeScreen> {
                     scrollCtrl: _scrollCtrl,
                   ),
           ),
+          // Agent status strip — sits directly above the input, like
+          // Claude Code / OpenCode.
+          // AnimatedCrossFade keeps AgentStatusStrip mounted → orbit animation
+          // never resets between tool→think transitions (no visual jump).
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeOutCubic,
+            crossFadeState: showStatus
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: AgentStatusStrip(
+              phase: phase,
+              label: phaseLabel,
+              elapsedSec: _elapsedSeconds,
+              tokens: state.estimatedTokensUsed,
+              onCancel: () => ref.read(codeProvider.notifier).cancel(),
+            ),
+            secondChild: const SizedBox.shrink(),
+          ),
           _GlassCodeInput(onSend: _scrollToBottom),
         ]),
       ]),
     );
   }
-}
-
-// ── Agent status bar ────────────────────────────────────────────────────
-
-class _AgentStatusBar extends StatelessWidget {
-  const _AgentStatusBar({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 26,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppTheme.blue500.withValues(alpha: 0.08),
-          border: Border(
-              bottom: BorderSide(
-                  color: AppTheme.blue500.withValues(alpha: 0.1))),
-        ),
-        child: Row(children: [
-          SizedBox(
-            width: 8,
-            height: 8,
-            child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: AppTheme.blue400,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(text,
-              style: GoogleFonts.dmMono(
-                  fontSize: 10,
-                  color: AppTheme.blue300,
-                  fontWeight: FontWeight.w500)),
-        ]),
-      );
 }
 
 // ── Top bar ───────────────────────────────────────────────────────────────
@@ -318,18 +338,16 @@ class _CodeTopBar extends ConsumerWidget {
         child: Container(
           height: 50,
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration:
-              BoxDecoration(color: AppTheme.bg.withValues(alpha: 0.7)),
+          decoration: BoxDecoration(color: AppTheme.bg.withValues(alpha: 0.7)),
           child: Row(children: [
             // Code mode badge
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: AppTheme.blue500.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                    color: AppTheme.blue500.withValues(alpha: 0.35)),
+                border:
+                    Border.all(color: AppTheme.blue500.withValues(alpha: 0.35)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.code_rounded,
@@ -366,8 +384,7 @@ class _CodeTopBar extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         value: fill,
-                        backgroundColor:
-                            AppTheme.surface2,
+                        backgroundColor: AppTheme.surface2,
                         valueColor: AlwaysStoppedAnimation(
                           fill > 0.8
                               ? const Color(0xFFEF4444)
@@ -392,8 +409,9 @@ class _CodeTopBar extends ConsumerWidget {
               onTap: () async {
                 final dir = await FilePicker.platform.getDirectoryPath();
                 if (dir != null) {
-                  ref.read(codeProvider.notifier).setCodeSettings(
-                      settings.copyWith(workspacePath: dir));
+                  ref
+                      .read(codeProvider.notifier)
+                      .setCodeSettings(settings.copyWith(workspacePath: dir));
                 }
               },
             ),
@@ -403,9 +421,8 @@ class _CodeTopBar extends ConsumerWidget {
                 label: 'Files',
                 icon: Icons.folder_open_rounded,
                 active: settings.allowFileEdits,
-                onTap: () => ref
-                    .read(codeProvider.notifier)
-                    .setCodeSettings(settings.copyWith(
+                onTap: () => ref.read(codeProvider.notifier).setCodeSettings(
+                    settings.copyWith(
                         allowFileEdits: !settings.allowFileEdits)),
               ),
             ],
@@ -418,10 +435,8 @@ class _CodeTopBar extends ConsumerWidget {
                 label: 'Cmds',
                 icon: Icons.terminal_rounded,
                 active: settings.allowCommands,
-                onTap: () => ref
-                    .read(codeProvider.notifier)
-                    .setCodeSettings(settings.copyWith(
-                        allowCommands: !settings.allowCommands)),
+                onTap: () => ref.read(codeProvider.notifier).setCodeSettings(
+                    settings.copyWith(allowCommands: !settings.allowCommands)),
               ),
             ),
             const SizedBox(width: 4),
@@ -433,11 +448,9 @@ class _CodeTopBar extends ConsumerWidget {
                 label: 'Net',
                 icon: Icons.language_rounded,
                 active: settings.allowNetworkAccess,
-                onTap: () => ref
-                    .read(codeProvider.notifier)
-                    .setCodeSettings(settings.copyWith(
-                        allowNetworkAccess:
-                            !settings.allowNetworkAccess)),
+                onTap: () => ref.read(codeProvider.notifier).setCodeSettings(
+                    settings.copyWith(
+                        allowNetworkAccess: !settings.allowNetworkAccess)),
               ),
             ),
             const SizedBox(width: 8),
@@ -456,27 +469,24 @@ class _CodeTopBar extends ConsumerWidget {
                   ? 'Reasoning: on'
                   : 'Reasoning: off',
               active: settings.reasoningEnabled,
-              onTap: () => ref
-                  .read(codeProvider.notifier)
-                  .setCodeSettings(settings.copyWith(
-                      reasoningEnabled:
-                          !settings.reasoningEnabled)),
+              onTap: () => ref.read(codeProvider.notifier).setCodeSettings(
+                  settings.copyWith(
+                      reasoningEnabled: !settings.reasoningEnabled)),
             ),
             const Spacer(),
             // New chat
             _SmallIconBtn(
               icon: Icons.add_rounded,
               tooltip: 'New session',
-              onTap: () =>
-                  ref.read(codeProvider.notifier).newChat(),
+              onTap: () => ref.read(codeProvider.notifier).newChat(),
             ),
             const SizedBox(width: 4),
             // Settings
             _SmallIconBtn(
               icon: Icons.tune_rounded,
               tooltip: 'Settings',
-              onTap: () => ModelSettingsSheet.show(context,
-                  provider: codeProvider),
+              onTap: () =>
+                  ModelSettingsSheet.show(context, provider: codeProvider),
             ),
           ]),
         ),
@@ -500,8 +510,7 @@ class _ModeDropdown extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface1,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-            color: AppTheme.blue500.withValues(alpha: 0.15)),
+        border: Border.all(color: AppTheme.blue500.withValues(alpha: 0.15)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -558,18 +567,13 @@ class _PermChip extends StatelessWidget {
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon,
-                size: 10,
-                color: active ? AppTheme.blue400 : AppTheme.textMid),
+                size: 10, color: active ? AppTheme.blue400 : AppTheme.textMid),
             const SizedBox(width: 3),
             Text(label,
                 style: GoogleFonts.sora(
                     fontSize: 9,
-                    color: active
-                        ? AppTheme.blue300
-                        : AppTheme.textMid,
-                    fontWeight: active
-                        ? FontWeight.w600
-                        : FontWeight.w400)),
+                    color: active ? AppTheme.blue300 : AppTheme.textMid,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400)),
           ]),
         ),
       );
@@ -577,7 +581,10 @@ class _PermChip extends StatelessWidget {
 
 class _SmallIconBtn extends StatefulWidget {
   const _SmallIconBtn(
-      {required this.icon, required this.tooltip, required this.onTap, this.active});
+      {required this.icon,
+      required this.tooltip,
+      required this.onTap,
+      this.active});
   final IconData icon;
   final String tooltip;
   final VoidCallback onTap;
@@ -595,7 +602,7 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
         message: widget.tooltip,
         child: MouseRegion(
           onEnter: (_) => setState(() => _hovered = true),
-          onExit:  (_) => setState(() => _hovered = false),
+          onExit: (_) => setState(() => _hovered = false),
           child: GestureDetector(
             onTap: widget.onTap,
             child: AnimatedContainer(
@@ -612,7 +619,9 @@ class _SmallIconBtnState extends State<_SmallIconBtn> {
               ),
               child: Icon(widget.icon,
                   size: 16,
-                  color: widget.active == true ? AppTheme.blue400 : AppTheme.textMid),
+                  color: widget.active == true
+                      ? AppTheme.blue400
+                      : AppTheme.textMid),
             ),
           ),
         ),
@@ -637,8 +646,7 @@ class _DesktopLayout extends StatelessWidget {
       Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 880),
-          child: _ConversationPanel(
-              state: state, scrollCtrl: scrollCtrl),
+          child: _ConversationPanel(state: state, scrollCtrl: scrollCtrl),
         ),
       );
 }
@@ -671,11 +679,9 @@ class _MobileLayoutState extends State<_MobileLayout> {
         Expanded(
           child: _showCode
               ? _CodeOutputPanel(
-                  snippets: widget.snippets,
-                  isLoading: widget.state.isLoading)
+                  snippets: widget.snippets, isLoading: widget.state.isLoading)
               : _ConversationPanel(
-                  state: widget.state,
-                  scrollCtrl: widget.scrollCtrl),
+                  state: widget.state, scrollCtrl: widget.scrollCtrl),
         ),
       ]);
 }
@@ -687,8 +693,7 @@ class _TabRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         color: AppTheme.bg.withValues(alpha: 0.6),
         child: Row(children: [
           _Tab(
@@ -722,8 +727,7 @@ class _Tab extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 130),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 11, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
           decoration: BoxDecoration(
             color: selected
                 ? AppTheme.blue500.withValues(alpha: 0.18)
@@ -738,19 +742,13 @@ class _Tab extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon,
                 size: 13,
-                color: selected
-                    ? AppTheme.blue400
-                    : AppTheme.textMid),
+                color: selected ? AppTheme.blue400 : AppTheme.textMid),
             const SizedBox(width: 5),
             Text(label,
                 style: GoogleFonts.sora(
                     fontSize: 12,
-                    fontWeight: selected
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: selected
-                        ? AppTheme.blue300
-                        : AppTheme.textMid)),
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? AppTheme.blue300 : AppTheme.textMid)),
           ]),
         ),
       );
@@ -759,8 +757,7 @@ class _Tab extends StatelessWidget {
 // ── Conversation panel (compact messages) ────────────────────────────────
 
 class _ConversationPanel extends StatelessWidget {
-  const _ConversationPanel(
-      {required this.state, required this.scrollCtrl});
+  const _ConversationPanel({required this.state, required this.scrollCtrl});
   final ChatState state;
   final ScrollController scrollCtrl;
 
@@ -771,8 +768,7 @@ class _ConversationPanel extends StatelessWidget {
       controller: scrollCtrl,
       padding: const EdgeInsets.only(top: 10, bottom: 10),
       itemCount: state.messages.length,
-      itemBuilder: (_, i) =>
-          _CompactMessage(message: state.messages[i]),
+      itemBuilder: (_, i) => _CompactMessage(message: state.messages[i]),
     );
   }
 }
@@ -845,8 +841,8 @@ class _CompactMessage extends StatelessWidget {
                             color: const Color(0xFF0D1117),
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
-                                color: AppTheme.blue500
-                                    .withValues(alpha: 0.12)),
+                                color:
+                                    AppTheme.blue500.withValues(alpha: 0.12)),
                           ),
                           codeblockPadding: const EdgeInsets.all(12),
                           blockSpacing: 8,
@@ -903,8 +899,8 @@ class _SnippetTabs extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.surface1.withValues(alpha: 0.8),
           border: Border(
-              bottom: BorderSide(
-                  color: AppTheme.blue500.withValues(alpha: 0.1))),
+              bottom:
+                  BorderSide(color: AppTheme.blue500.withValues(alpha: 0.1))),
         ),
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
@@ -916,14 +912,11 @@ class _SnippetTabs extends StatelessWidget {
               onTap: () => onSelect(i),
               child: Container(
                 alignment: Alignment.center,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: sel
-                          ? AppTheme.blue400
-                          : Colors.transparent,
+                      color: sel ? AppTheme.blue400 : Colors.transparent,
                       width: 2,
                     ),
                   ),
@@ -931,12 +924,8 @@ class _SnippetTabs extends StatelessWidget {
                 child: Text(snippets[i].language,
                     style: GoogleFonts.dmMono(
                         fontSize: 11,
-                        color: sel
-                            ? AppTheme.blue300
-                            : AppTheme.textMid,
-                        fontWeight: sel
-                            ? FontWeight.w600
-                            : FontWeight.w400)),
+                        color: sel ? AppTheme.blue300 : AppTheme.textMid,
+                        fontWeight: sel ? FontWeight.w600 : FontWeight.w400)),
               ),
             );
           },
@@ -951,24 +940,21 @@ class _SnippetView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: AppTheme.surface2.withValues(alpha: 0.5),
             border: Border(
-                bottom: BorderSide(
-                    color:
-                        AppTheme.blue500.withValues(alpha: 0.1))),
+                bottom:
+                    BorderSide(color: AppTheme.blue500.withValues(alpha: 0.1))),
           ),
           child: Row(children: [
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: AppTheme.blue500.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(5),
-                border: Border.all(
-                    color: AppTheme.blue500.withValues(alpha: 0.3)),
+                border:
+                    Border.all(color: AppTheme.blue500.withValues(alpha: 0.3)),
               ),
               child: Text(snippet.language,
                   style: GoogleFonts.dmMono(
@@ -987,8 +973,7 @@ class _SnippetView extends StatelessWidget {
               language: snippet.language,
               theme: atomOneDarkTheme,
               padding: const EdgeInsets.all(20),
-              textStyle:
-                  GoogleFonts.dmMono(fontSize: 13, height: 1.6),
+              textStyle: GoogleFonts.dmMono(fontSize: 13, height: 1.6),
             ),
           ),
         ),
@@ -1008,13 +993,11 @@ class _NoCodePlaceholder extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.surface2,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                  color: AppTheme.blue500.withValues(alpha: 0.2)),
+              border:
+                  Border.all(color: AppTheme.blue500.withValues(alpha: 0.2)),
             ),
             child: Icon(
-              isLoading
-                  ? Icons.hourglass_top_rounded
-                  : Icons.code_off_rounded,
+              isLoading ? Icons.hourglass_top_rounded : Icons.code_off_rounded,
               size: 26,
               color: AppTheme.textMid,
             ),
@@ -1031,8 +1014,7 @@ class _NoCodePlaceholder extends StatelessWidget {
           Text(
             'Code blocks from the AI\nwill appear here.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.sora(
-                fontSize: 12, color: AppTheme.textLow),
+            style: GoogleFonts.sora(fontSize: 12, color: AppTheme.textLow),
           ),
         ]),
       );
@@ -1061,8 +1043,7 @@ class _CopyCodeBtnState extends State<_CopyCodeBtn> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: _copied
                 ? AppTheme.blue500.withValues(alpha: 0.2)
@@ -1085,9 +1066,7 @@ class _CopyCodeBtnState extends State<_CopyCodeBtn> {
               _copied ? 'Copied!' : 'Copy',
               style: GoogleFonts.sora(
                   fontSize: 11,
-                  color: _copied
-                      ? AppTheme.blue400
-                      : AppTheme.textMid,
+                  color: _copied ? AppTheme.blue400 : AppTheme.textMid,
                   fontWeight: FontWeight.w500),
             ),
           ]),
@@ -1148,8 +1127,8 @@ class _CodeEmptyState extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppTheme.blue900,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: AppTheme.blue500.withValues(alpha: 0.3)),
+                border:
+                    Border.all(color: AppTheme.blue500.withValues(alpha: 0.3)),
               ),
               child: const Icon(Icons.terminal_rounded,
                   size: 30, color: AppTheme.blue400),
@@ -1164,8 +1143,7 @@ class _CodeEmptyState extends ConsumerWidget {
             const SizedBox(height: 6),
             Text('Ask Claude to write, review, or explain code.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.sora(
-                    fontSize: 13, color: AppTheme.textMid)),
+                style: GoogleFonts.sora(fontSize: 13, color: AppTheme.textMid)),
             const SizedBox(height: 20),
             Wrap(
               spacing: 8,
@@ -1173,9 +1151,8 @@ class _CodeEmptyState extends ConsumerWidget {
               alignment: WrapAlignment.center,
               children: _suggestions
                   .map((s) => GestureDetector(
-                        onTap: () => ref
-                            .read(codeProvider.notifier)
-                            .sendMessage(s),
+                        onTap: () =>
+                            ref.read(codeProvider.notifier).sendMessage(s),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 7),
@@ -1183,13 +1160,12 @@ class _CodeEmptyState extends ConsumerWidget {
                             color: AppTheme.surface2,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: AppTheme.blue500
-                                    .withValues(alpha: 0.15)),
+                                color:
+                                    AppTheme.blue500.withValues(alpha: 0.15)),
                           ),
                           child: Text(s,
                               style: GoogleFonts.sora(
-                                  fontSize: 12,
-                                  color: AppTheme.textMid)),
+                                  fontSize: 12, color: AppTheme.textMid)),
                         ),
                       ))
                   .toList(),
@@ -1235,8 +1211,7 @@ class _ToolCallInlineState extends State<_ToolCallInline> {
   Widget build(BuildContext context) {
     final parts = _split(widget.message.content);
     final hasBody = parts.body.trim().isNotEmpty;
-    final bodyLineCount =
-        hasBody ? parts.body.trim().split('\n').length : 0;
+    final bodyLineCount = hasBody ? parts.body.trim().split('\n').length : 0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
@@ -1258,8 +1233,8 @@ class _ToolCallInlineState extends State<_ToolCallInline> {
               decoration: BoxDecoration(
                 color: const Color(0xFF0D1117).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                    color: AppTheme.blue500.withValues(alpha: 0.15)),
+                border:
+                    Border.all(color: AppTheme.blue500.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

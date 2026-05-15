@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:okakchat/core/theme/platform_utils.dart';
 
@@ -16,6 +19,17 @@ abstract class ToolExecutor {
   }
 
   Future<String> dispatch(String toolName, Map<String, dynamic> args) async {
+    if (kDebugMode) {
+      final argsShort = args.map((k, v) =>
+          MapEntry(k, AppLogger.trunc(v.toString(), 60)));
+      AppLogger.tool('→ $toolName  $argsShort');
+    }
+    final result = await _dispatch(toolName, args);
+    AppLogger.tool('← $toolName  "${AppLogger.trunc(result, 100)}"');
+    return result;
+  }
+
+  Future<String> _dispatch(String toolName, Map<String, dynamic> args) async {
     return switch (toolName) {
       'read_file' => readFile(args['path'] as String),
       'list_directory' => listDirectory(args['path'] as String),
@@ -51,12 +65,25 @@ class DesktopToolExecutor extends ToolExecutor {
   Future<String> listDirectory(String path) async {
     final dir = Directory(path);
     if (!await dir.exists()) return 'Error: directory not found: $path';
-    final entries = await dir.list().toList();
-    entries.sort((a, b) => a.path.compareTo(b.path));
-    return entries.map((e) {
-      final name = p.basename(e.path);
-      return e is Directory ? '$name/' : name;
-    }).join('\n');
+    try {
+      final entries = await dir
+          .list()
+          .take(500)
+          .toList()
+          .timeout(const Duration(seconds: 10));
+      entries.sort((a, b) => a.path.compareTo(b.path));
+      final lines = entries.map((e) {
+        final name = p.basename(e.path);
+        return e is Directory ? '$name/' : name;
+      }).toList();
+      final suffix =
+          entries.length == 500 ? '\n… (truncated at 500 entries)' : '';
+      return lines.join('\n') + suffix;
+    } on TimeoutException {
+      return 'Error: listing $path timed out (too large or permission denied)';
+    } catch (e) {
+      return 'Error listing $path: $e';
+    }
   }
 
   @override
@@ -113,14 +140,23 @@ class DesktopToolExecutor extends ToolExecutor {
   @override
   Future<String> executeCommand(String command,
       {String? workingDir}) async {
-    final result = await Process.run(
-      '/bin/sh',
-      ['-c', command],
-      workingDirectory: workingDir,
-    );
-    final out = result.stdout.toString();
-    final err = result.stderr.toString();
-    return [if (out.isNotEmpty) out, if (err.isNotEmpty) err].join('\n');
+    // cmd.exe on Windows; /bin/sh everywhere else.
+    final shell = Platform.isWindows ? 'cmd.exe' : '/bin/sh';
+    final args = Platform.isWindows ? ['/c', command] : ['-c', command];
+    try {
+      final result = await Process.run(
+        shell,
+        args,
+        workingDirectory: workingDir,
+      ).timeout(const Duration(minutes: 2));
+      final out = result.stdout.toString();
+      final err = result.stderr.toString();
+      return [if (out.isNotEmpty) out, if (err.isNotEmpty) err].join('\n');
+    } on TimeoutException {
+      return 'Error: command timed out after 2 minutes';
+    } catch (e) {
+      return 'Error executing command: $e';
+    }
   }
 
   bool _matchGlob(String path, String glob) {

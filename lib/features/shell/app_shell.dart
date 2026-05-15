@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:okakchat/core/providers/settings_provider.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
 import 'package:okakchat/core/theme/platform_utils.dart';
@@ -100,6 +101,9 @@ class AppShell extends ConsumerWidget {
   }
 
   void _onTabTap(BuildContext context, int i, bool isAdmin) {
+    const routes = ['/chat', '/history', '/settings', '/admin'];
+    final route = i < routes.length ? routes[i] : '?';
+    AppLogger.tap('Tab[$i] → $route');
     switch (i) {
       case 0: context.go('/chat');
       case 1: context.go('/history');

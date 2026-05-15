@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:okakchat/core/api/chat_api.dart';
 import 'package:okakchat/core/api/ws_client.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:okakchat/core/providers/conversations_provider.dart';
 import 'package:okakchat/core/providers/notifications_provider.dart';
 
@@ -67,24 +69,63 @@ String _detectOsName() {
   return 'unknown';
 }
 
+/// Per-OS shell hint baked into the runtime env block. Keeps the model from
+/// suggesting GNU-only flags on macOS or POSIX-only paths on Windows.
+String _shellFor() {
+  if (kIsWeb) return 'n/a (browser sandbox)';
+  if (Platform.isMacOS) return '/bin/zsh (BSD userland)';
+  if (Platform.isLinux) return '/bin/bash (GNU coreutils)';
+  if (Platform.isWindows) return 'PowerShell / cmd.exe';
+  if (Platform.isIOS || Platform.isAndroid) return 'n/a (mobile sandbox)';
+  return 'unknown';
+}
+
+String _osSpecificGuidance() {
+  if (kIsWeb) {
+    return 'You are running inside a browser. No filesystem or shell access — '
+        'only conversational answers and code samples are possible.';
+  }
+  if (Platform.isMacOS) {
+    return 'Prefer BSD-style flags. Examples: `sed -i "" ...`, '
+        '`find . -name`, `ls -la`. Paths use forward slashes. '
+        'Avoid GNU-only options like `sed -i` without an empty backup arg, '
+        '`readlink -f`, `date --iso-8601`.';
+  }
+  if (Platform.isLinux) {
+    return 'GNU coreutils available. `sed -i`, `readlink -f`, `xargs -r` are fine. '
+        'Paths use forward slashes.';
+  }
+  if (Platform.isWindows) {
+    return 'Use PowerShell semantics by default (`Get-ChildItem`, `Select-String`, '
+        '`Copy-Item`). If a unix tool is needed, gate it behind WSL or git-bash. '
+        'Paths use backslashes; quote paths containing spaces.';
+  }
+  if (Platform.isAndroid || Platform.isIOS) {
+    return 'You are running on a mobile device. There is no shell, no filesystem '
+        'access, and no agent code execution. Do NOT propose shell commands or '
+        'file edits — answer conversationally and provide code samples only.';
+  }
+  return '';
+}
+
 /// Builds the runtime environment block appended to the system prompt so
 /// the model knows the actual platform / shell / workspace it is operating in.
 String buildEnvironmentBlock({String workspacePath = ''}) {
   final os = _detectOsName();
-  final shell = (!kIsWeb && (Platform.isMacOS || Platform.isLinux))
-      ? '/bin/sh (POSIX)'
-      : (!kIsWeb && Platform.isWindows ? 'cmd.exe' : 'n/a');
+  final shell = _shellFor();
   final cwd = workspacePath.isNotEmpty
       ? workspacePath
       : (!kIsWeb ? Directory.current.path : '(browser sandbox)');
+  final guidance = _osSpecificGuidance();
+  final pathSep = (!kIsWeb && Platform.isWindows) ? r'\\' : '/';
   return '''
 
 <environment>
 Operating system: $os
 Shell: $shell
 Workspace directory: $cwd
-When suggesting commands, use syntax appropriate for $os.
-On macOS prefer BSD-style flags (e.g. `sed -i ''`, `find . -name`), not GNU-only variants.
+Path separator: $pathSep
+$guidance
 All file paths must be absolute unless explicitly relative to the workspace.
 </environment>''';
 }
@@ -298,9 +339,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
   bool get isCancelled => _cancelled;
 
+  Completer<String>? _toolCancelCompleter;
+  void registerToolCancelToken(Completer<String> c) =>
+      _toolCancelCompleter = c;
+  void clearToolCancelToken() => _toolCancelCompleter = null;
+
   void cancel() {
+    AppLogger.state('cancel() — genId=$_generationId');
     _cancelled = true;
     _ref.read(wsClientProvider).cancel();
+    if (_toolCancelCompleter != null && !_toolCancelCompleter!.isCompleted) {
+      _toolCancelCompleter!.complete('Cancelled by user.');
+    }
   }
 
   // ── Send message ─────────────────────────────────────────────────────────
@@ -309,6 +359,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
       {List<Map<String, dynamic>>? tools}) async {
     _cancelled = false;
     _generationId++;
+    AppLogger.state(
+        'sendMessage — genId=$_generationId  tools=${tools?.map((t) => t["name"]).toList()}  msg="${AppLogger.trunc(content, 60)}"');
     final userMsg = ChatMessage(role: 'user', content: content);
     final assistantMsg =
         ChatMessage(role: 'assistant', content: '', isStreaming: true);
@@ -458,51 +510,86 @@ class ChatNotifier extends StateNotifier<ChatState> {
           files: filesToSend?.isNotEmpty == true ? filesToSend : null,
         );
 
-    final buffer = StringBuffer();
+    // Полный текст, который пришёл с сервера (может опережать UI).
+    final incoming = StringBuffer();
+    // Сколько символов уже показано в UI.
+    var displayedLen = 0;
+    var streamDone = false;
     Map<String, dynamic>? pendingToolCall;
     bool hadError = false;
-    // Throttle UI updates to ~30 fps so streaming feels smooth instead of
-    // rebuilding the full transcript on every token.
-    var lastFlush = DateTime.now();
-    var dirty = false;
-    const flushInterval = Duration(milliseconds: 33);
 
-    void flush() {
-      if (!dirty) return;
-      assistantMsg.content = buffer.toString();
+    void pushToUi(int len) {
+      if (len <= 0) return;
+      assistantMsg.content = incoming.toString().substring(0, len);
       state = state.copyWith(
         conversationId: convId,
         messages: [...state.messages],
       );
-      dirty = false;
-      lastFlush = DateTime.now();
     }
 
+    // Typewriter: каждые 16мс выдаём в UI порцию символов, размер которой
+    // зависит от backlog'а. Так даже если WS прислал 200 символов одним
+    // фреймом, они «накапают» плавно, а не выпадут стеной.
+    final typewriter = Stream.periodic(
+      const Duration(milliseconds: 16),
+      (_) => null,
+    ).listen((_) {
+      if (_cancelled) return;
+      final total = incoming.length;
+      if (displayedLen >= total) return;
+      final backlog = total - displayedLen;
+      // Базовая скорость ~3 символа/тик (~180 cps). При большом backlog
+      // догоняем быстрее, чтобы не отставать на длинных ответах.
+      final emit = backlog < 4
+          ? backlog
+          : streamDone
+              ? math.max(6, backlog ~/ 3)
+              : math.min(18, math.max(3, backlog ~/ 8));
+      displayedLen = math.min(total, displayedLen + emit);
+      pushToUi(displayedLen);
+    });
+
+    AppLogger.net('WS stream start — genId=$_generationId');
     try {
       await for (final chunk in wsStream) {
         if (_cancelled) break;
-        if (chunk.done) break;
+        if (chunk.done) {
+          AppLogger.net('WS done — totalChars=${incoming.length}');
+          break;
+        }
         if (chunk.error != null) {
+          AppLogger.err('WS error: ${chunk.error}');
           hadError = true;
           _showError(chunk.error!);
           break;
         }
         if (chunk.content != null) {
-          buffer.write(chunk.content);
-          dirty = true;
-          if (DateTime.now().difference(lastFlush) >= flushInterval) {
-            flush();
-          }
+          incoming.write(chunk.content);
         }
         if (chunk.toolCall != null) {
+          final fn = (chunk.toolCall!['function'] as Map?)?.cast<String, dynamic>();
+          AppLogger.net('WS toolCall: ${fn?["name"]} args=${AppLogger.trunc(fn?["arguments"]?.toString() ?? "", 80)}');
           pendingToolCall = chunk.toolCall;
         }
       }
-      // Final flush so we don't lose the last unflushed tokens.
-      flush();
+      streamDone = true;
+      // Дренаж: даём typewriter догнать поток, но не дольше ~600мс.
+      final deadline = DateTime.now().add(const Duration(milliseconds: 600));
+      while (displayedLen < incoming.length &&
+          DateTime.now().isBefore(deadline) &&
+          !_cancelled) {
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+      }
+      // Финальный flush — гарантированно отдать остаток.
+      if (!_cancelled && displayedLen < incoming.length) {
+        displayedLen = incoming.length;
+        pushToUi(displayedLen);
+      }
     } catch (e) {
       hadError = true;
       if (!_cancelled) _showError(e.toString());
+    } finally {
+      await typewriter.cancel();
     }
 
     if (_cancelled || hadError) {

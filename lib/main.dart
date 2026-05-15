@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:okakchat/core/l10n/strings.dart';
 import 'package:okakchat/core/router/router.dart';
 import 'package:okakchat/core/theme/app_theme.dart';
@@ -9,6 +11,26 @@ import 'package:window_manager/window_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Log every hardware key press in debug builds.
+  if (kDebugMode) {
+    HardwareKeyboard.instance.addHandler((event) {
+      if (event is KeyDownEvent) {
+        final label = event.logicalKey.keyLabel;
+        // Skip noisy modifier-only events; still log them but mark as [mod].
+        final isMod = {
+          'Shift Left', 'Shift Right',
+          'Control Left', 'Control Right',
+          'Alt Left', 'Alt Right',
+          'Meta Left', 'Meta Right',
+          'Caps Lock', 'Num Lock',
+        }.contains(label);
+        AppLogger.key('${isMod ? "[mod] " : ""}↓ $label');
+      }
+      return false; // never consume
+    });
+    AppLogger.state('App started — debug logging active');
+  }
 
   // Custom window frame on desktop (macOS / Windows / Linux)
   if (!kIsWeb && PlatformUtils.isDesktop) {

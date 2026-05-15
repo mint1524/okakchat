@@ -119,7 +119,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         AnimatedPositioned(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          bottom: _showScrollBtn ? 90 : -60,
+          bottom: _showScrollBtn ? 106 : -60,
           right: 24,
           child: _ScrollToBottomBtn(onTap: _scrollToBottom),
         ),

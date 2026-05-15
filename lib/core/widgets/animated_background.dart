@@ -201,19 +201,24 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
               final progress = widget.formationProgress;
 
               for (final p in _particles) {
-                p.update(drift: formation == ParticleFormation.none);
-                if (formation != ParticleFormation.none && p.targetX >= 0) {
+                final inFormation = formation != ParticleFormation.none;
+                if (inFormation && p.targetX >= 0) {
                   final targetDx = p.targetX - p.x;
                   final targetDy = p.targetY - p.y;
-                  final dist = math.sqrt(targetDx * targetDx + targetDy * targetDy);
-                  if (dist > 0.002) {
+                  final dist =
+                      math.sqrt(targetDx * targetDx + targetDy * targetDy);
+                  if (dist > 0.004) {
+                    // Подлёт к точке назначения.
                     final speed = 0.04 + 0.04 * progress;
                     p.x += targetDx * speed;
                     p.y += targetDy * speed;
+                    p.update(drift: false, atTarget: false);
                   } else {
-                    p.x = p.targetX;
-                    p.y = p.targetY;
+                    // Уже в точке — дышим, не замираем.
+                    p.update(drift: false, atTarget: true);
                   }
+                } else {
+                  p.update(drift: true);
                 }
               }
 
@@ -240,16 +245,42 @@ class _Particle {
   _Particle.random(math.Random rng) {
     x = rng.nextDouble();
     y = rng.nextDouble();
-    vx = (rng.nextDouble() - 0.5) * 0.00065;
-    vy = (rng.nextDouble() - 0.5) * 0.00065;
+    // Заметно быстрее, чем было (0.00065): теперь ~0.18% экрана/кадр.
+    vx = (rng.nextDouble() - 0.5) * 0.0018;
+    vy = (rng.nextDouble() - 0.5) * 0.0018;
     size = rng.nextDouble() * 1.8 + 0.8;
-    opacity = rng.nextDouble() * 0.4 + 0.15;
+    baseOpacity = rng.nextDouble() * 0.4 + 0.18;
+    opacity = baseOpacity;
+    phase = rng.nextDouble() * math.pi * 2;
+    orbitPhase = rng.nextDouble() * math.pi * 2;
+    shimmerPhase = rng.nextDouble() * math.pi * 2;
+    breathSpeed = 0.018 + rng.nextDouble() * 0.022;
+    breathAmp = 0.010 + rng.nextDouble() * 0.014;
+    orbitRadius = 0.006 + rng.nextDouble() * 0.010;
+    orbitSpeed = 0.006 + rng.nextDouble() * 0.010;
   }
 
   double x = 0, y = 0, vx = 0, vy = 0, size = 1, opacity = 0.3;
+  double baseOpacity = 0.3;
   double targetX = -1, targetY = -1;
+  double phase = 0;
+  double orbitPhase = 0;
+  double shimmerPhase = 0;
+  double breathSpeed = 0.02;
+  double breathAmp = 0.006;
+  double orbitRadius = 0.008;
+  double orbitSpeed = 0.008;
 
-  void update({bool drift = true}) {
+  /// Drift = свободное броуновское движение (формация выключена).
+  /// Когда формация активна и частица «прилетела», добавляем
+  /// микро-дыхание + орбиту + shimmer — иначе картинка мёртвая.
+  void update({bool drift = true, bool atTarget = false}) {
+    phase += breathSpeed;
+    orbitPhase += orbitSpeed;
+    shimmerPhase += 0.024;
+    // Лёгкий shimmer яркости — частицы «дышат» прозрачностью даже когда
+    // координаты статичны.
+    opacity = (baseOpacity + math.sin(shimmerPhase) * 0.12).clamp(0.05, 1.0);
     if (drift) {
       x += vx;
       y += vy;
@@ -257,6 +288,13 @@ class _Particle {
       if (x > 1) x -= 1;
       if (y < 0) y += 1;
       if (y > 1) y -= 1;
+    } else if (atTarget && targetX >= 0) {
+      // Двухслойное движение вокруг target: медленная орбита + быстрое
+      // дыхание. Картинка остаётся «живой» после формации.
+      final orbitX = math.cos(orbitPhase) * orbitRadius;
+      final orbitY = math.sin(orbitPhase) * orbitRadius;
+      x = targetX + orbitX + math.cos(phase) * breathAmp;
+      y = targetY + orbitY + math.sin(phase * 0.9) * breathAmp;
     }
   }
 }
@@ -301,8 +339,7 @@ class _ParticlePainter extends CustomPainter {
         final dist = math.sqrt(dx * dx + dy * dy);
         if (dist < _connectionDistance) {
           final fade = 1.0 - dist / _connectionDistance;
-          linePaint.color =
-              AppTheme.blue500.withValues(alpha: fade * 0.12);
+          linePaint.color = AppTheme.blue500.withValues(alpha: fade * 0.12);
           canvas.drawLine(
             Offset(a.x * size.width, a.y * size.height),
             Offset(b.x * size.width, b.y * size.height),

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:okakchat/core/auth/auth_provider.dart';
+import 'package:okakchat/core/debug/app_logger.dart';
 import 'package:okakchat/features/auth/login_screen.dart';
 import 'package:okakchat/features/auth/register_screen.dart';
 import 'package:okakchat/features/auth/verify_screen.dart';
@@ -18,6 +20,33 @@ Page<void> _noAnimPage(GoRouterState state, Widget child) {
     child: child,
     transitionsBuilder: (_, __, ___, c) => c,
   );
+}
+
+// ── Debug navigation observer ─────────────────────────────────────────────
+class _DebugNavObserver extends NavigatorObserver {
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    if (!kDebugMode) return;
+    final name = route.settings.name ?? route.runtimeType.toString();
+    final prev = previousRoute?.settings.name ?? '—';
+    AppLogger.nav('push  $prev → $name');
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    if (!kDebugMode) return;
+    final name = route.settings.name ?? route.runtimeType.toString();
+    final prev = previousRoute?.settings.name ?? '—';
+    AppLogger.nav('pop   $name → $prev');
+  }
+
+  @override
+  void didReplace({Route? newRoute, Route? oldRoute}) {
+    if (!kDebugMode) return;
+    final n = newRoute?.settings.name ?? '?';
+    final o = oldRoute?.settings.name ?? '?';
+    AppLogger.nav('replace $o → $n');
+  }
 }
 
 // ── Auth-change notifier for GoRouter.refreshListenable ──────────────────
@@ -37,6 +66,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthChangeNotifier(ref);
 
   final router = GoRouter(
+    observers: kDebugMode ? [_DebugNavObserver()] : [],
     initialLocation: '/chat',
     refreshListenable: notifier,
     redirect: (context, state) {
